@@ -13,8 +13,21 @@ async def stream_strands_agent(
     agent: Agent,
     messages: Sequence[ChatCompletionMessageParam],
     protocol: str = "data",
+    on_finish: Callable[[Dict[str, Any]], None] = None,
 ):
-    """Yield Server-Sent Events for a streaming Strands Agent completion."""
+    """Yield Server-Sent Events for a streaming Strands Agent completion.
+    
+    Args:
+        agent: The Strands Agent instance
+        messages: Chat messages to send to the agent
+        protocol: The protocol for SSE events
+        on_finish: Optional callback that receives the complete buffered message
+                  in the format: {
+                      "role": "assistant",
+                      "parts": [...],  # Contains all text and tool-related parts
+                      "metadata": {"finishReason": "..."}
+                  }
+    """
     try:
         def format_sse(payload: dict) -> str:
             return f"data: {json.dumps(payload, separators=(',', ':'))}\n\n"
@@ -25,6 +38,10 @@ async def stream_strands_agent(
         text_finished = False
         tool_calls_state: Dict[str, Dict[str, Any]] = {}
         finish_reason = None
+        
+        # Message buffer to collect the complete AI response
+        message_parts = []
+        current_text_part = None
         
         yield format_sse({"type": "start", "messageId": message_id})
 
@@ -44,11 +61,16 @@ async def stream_strands_agent(
                             if not text_started:
                                 yield format_sse({"type": "text-start", "id": text_stream_id})
                                 text_started = True
+                                current_text_part = {"type": "text", "text": ""}
+                            
+                            text_delta = content_block['delta']['text']
+                            if current_text_part:
+                                current_text_part["text"] += text_delta
                             
                             yield format_sse({
                                 "type": "text-delta",
                                 "id": text_stream_id,
-                                "delta": content_block['delta']['text']
+                                "delta": text_delta
                             })
                         
                         # Reasoning content (thinking)
@@ -93,12 +115,26 @@ async def stream_strands_agent(
                                     tool_name = tool_use['name']
                                     tool_input = tool_use['input']
                                     
+                                    # Save text part if exists
+                                    if current_text_part:
+                                        message_parts.append(current_text_part)
+                                        current_text_part = None
+                                    
                                     # Track tool call state
                                     tool_calls_state[tool_call_id] = {
                                         "name": tool_name,
                                         "input": tool_input,
                                         "started": True
                                     }
+                                    
+                                    # Add tool call part to buffer
+                                    message_parts.append({
+                                        "type": f"tool-{tool_name}",
+                                        "toolCallId": tool_call_id,
+                                        "toolName": tool_name,
+                                        "state": "input-available",
+                                        "input": tool_input
+                                    })
                                     
                                     # Emit tool-input-start
                                     yield format_sse({
@@ -128,6 +164,11 @@ async def stream_strands_agent(
                                             output = result_content[0].get('text', '') if result_content else ''
                                         else:
                                             output = str(result_content)
+                                        
+                                        # Add tool result part to buffer
+                                        if message_parts and message_parts[-1].get("toolCallId") == tool_call_id:
+                                            message_parts[-1]["output"] = output
+                                            message_parts[-1]["state"] = "output-available"
                                         
                                         yield format_sse({
                                             "type": "tool-output-available",
@@ -162,6 +203,11 @@ async def stream_strands_agent(
                         
                         # Only send finish if not a tool use - tool use should continue for tool execution
                         if finish_reason != "tool_use":
+                            # Save remaining text part if exists
+                            if current_text_part:
+                                message_parts.append(current_text_part)
+                                current_text_part = None
+                            
                             # End text stream if it was started
                             if text_started and not text_finished:
                                 yield format_sse({"type": "text-end", "id": text_stream_id})
@@ -172,11 +218,29 @@ async def stream_strands_agent(
                                 "finishReason": finish_reason.replace("_", "-")
                             }
                             
+                            # Call onFinish callback with buffered message
+                            if on_finish:
+                                on_finish({
+                                    "role": "assistant",
+                                    "parts": message_parts,
+                                    "metadata": finish_metadata
+                                })
+                            
                             yield format_sse({"type": "finish", "messageMetadata": finish_metadata})
         
         # Ensure text stream is ended
         if text_started and not text_finished:
             yield format_sse({"type": "text-end", "id": text_stream_id})
+        
+        # Call onFinish with final buffered message
+        if current_text_part:
+            message_parts.append(current_text_part)
+        if on_finish and finish_reason:
+            on_finish({
+                "role": "assistant",
+                "parts": message_parts,
+                "metadata": {"finishReason": finish_reason.replace("_", "-")} if finish_reason else {}
+            })
         
         yield "data: [DONE]\n\n"
         

@@ -2,6 +2,7 @@ Metadata-Version: 2.4
 Name: strands-ai-sdk
 Version: 0.1.0
 Requires-Python: >=3.8
+Requires-Dist: alembic>=1.17.1
 Requires-Dist: annotated-types==0.7.0
 Requires-Dist: anyio==4.11.0
 Requires-Dist: certifi==2025.11.12
@@ -15,7 +16,9 @@ Requires-Dist: httpx==0.28.1
 Requires-Dist: idna==3.11
 Requires-Dist: jiter==0.12.0
 Requires-Dist: openai==2.7.2
+Requires-Dist: psycopg2-binary>=2.9.11
 Requires-Dist: pydantic==2.12.4
+Requires-Dist: sqlmodel>=0.0.27
 Requires-Dist: strands-agents==1.15.0
 Requires-Dist: strands-agents-tools==0.2.14
 Requires-Dist: pydantic_core==2.41.5
