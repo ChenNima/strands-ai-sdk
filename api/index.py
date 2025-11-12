@@ -46,8 +46,18 @@ async def handle_chat_data(request: Request, protocol: str = Query('data')):
     # Convert messages to format suitable for agent
     openai_messages = convert_to_openai_messages(messages)
     
+    async def generate():
+        """Wrapper to ensure proper streaming without buffering"""
+        async for chunk in stream_strands_agent(agent, openai_messages, protocol):
+            yield chunk
+    
     response = StreamingResponse(
-        stream_strands_agent(agent, openai_messages, protocol),
+        generate(),
         media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+            "Content-Encoding": "none",
+        }
     )
     return patch_response_with_headers(response, protocol)

@@ -20,7 +20,7 @@ async def stream_strands_agent(
             return f"data: {json.dumps(payload, separators=(',', ':'))}\n\n"
 
         message_id = f"msg-{uuid.uuid4().hex}"
-        text_stream_id = "text-1"
+        text_stream_id = f"text-{uuid.uuid4().hex[:8]}"
         text_started = False
         text_finished = False
         tool_calls_state: Dict[str, Dict[str, Any]] = {}
@@ -83,6 +83,11 @@ async def stream_strands_agent(
                                 
                                 # Tool call
                                 elif 'toolUse' in content:
+                                    # End text stream before starting tool call if needed
+                                    if text_started and not text_finished:
+                                        yield format_sse({"type": "text-end", "id": text_stream_id})
+                                        text_finished = True
+                                    
                                     tool_use = content['toolUse']
                                     tool_call_id = tool_use['toolUseId']
                                     tool_name = tool_use['name']
@@ -129,6 +134,12 @@ async def stream_strands_agent(
                                             "toolCallId": tool_call_id,
                                             "output": output
                                         })
+                                        
+                                        # Reset text stream state for potential new text after tool
+                                        # Generate new text_stream_id and reset flags
+                                        text_stream_id = f"text-{uuid.uuid4().hex[:8]}"
+                                        text_started = False
+                                        text_finished = False
                                     else:
                                         # Tool execution error
                                         error_text = tool_result.get('content', [{}])[0].get('text', 'Tool execution failed')
@@ -137,6 +148,12 @@ async def stream_strands_agent(
                                             "toolCallId": tool_call_id,
                                             "errorText": error_text
                                         })
+                                        
+                                        # Reset text stream state for potential new text after tool error
+                                        # Generate new text_stream_id and reset flags
+                                        text_stream_id = f"text-{uuid.uuid4().hex[:8]}"
+                                        text_started = False
+                                        text_finished = False
                 
                 # Handle message stop
                 elif 'event' in event and 'messageStop' in event['event']:
@@ -178,7 +195,7 @@ def stream_text(
     """Yield Server-Sent Events for a streaming chat completion."""
     try:
         def format_sse(payload: dict) -> str:
-            return f"data: {json.dumps(payload, separators=(',', ':'))}\n\n"
+            return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
         message_id = f"msg-{uuid.uuid4().hex}"
         text_stream_id = "text-1"
