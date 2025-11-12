@@ -1,34 +1,16 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { ChatInterface } from "@/components/custom/chat-interface";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function Page() {
   const router = useRouter();
-  const params = useParams();
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const id = params?.uuid as string;
+    // Generate a new UUID and redirect to /chat/[uuid]
+    const newId = crypto.randomUUID();
+    router.push(`/chat/${newId}`);
+  }, [router]);
 
-    if (id) {
-      // Already have a UUID in the URL
-      setConversationId(id);
-      setIsLoading(false);
-    } else {
-      // Generate new UUID using crypto API and redirect
-      const newId = crypto.randomUUID();
-      setConversationId(newId);
-      // Redirect to the new UUID route
-      router.push(`/chat/${newId}`);
-    }
-  }, [params, router]);
-
-  if (isLoading || !conversationId) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
-  }
-
-  return <ChatInterface conversationId={conversationId} />;
+  return <div className="flex items-center justify-center h-screen">Redirecting...</div>;
 }

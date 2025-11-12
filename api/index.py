@@ -6,6 +6,7 @@ from fastapi import FastAPI, Query, Request as FastAPIRequest
 from fastapi.responses import StreamingResponse
 from strands import Agent
 from strands.models import BedrockModel
+from strands.session.file_session_manager import FileSessionManager
 from sqlmodel import select
 from .utils.prompt import ClientMessage, convert_to_openai_messages
 from .utils.stream import patch_response_with_headers, stream_strands_agent
@@ -29,7 +30,8 @@ async def _vercel_set_headers(request: FastAPIRequest, call_next):
 
 class Request(BaseModel):
     id: str
-    messages: List[ClientMessage]
+    message: Optional[ClientMessage] = None  # Single message from optimized client
+    messages: Optional[List[ClientMessage]] = None  # Full history for backward compatibility
     trigger: Optional[str] = None
 
 
@@ -77,8 +79,15 @@ async def get_conversation_messages(conversation_uuid: str):
 
 @app.post("/api/chat")
 async def handle_chat_data(request: Request, protocol: str = Query('data')):
-    messages = request.messages
     conversation_id = request.id
+    
+    # Handle both optimized format (single message) and backward compatibility (full history)
+    if request.message:
+        # Optimized format: only the latest user message is sent
+        messages = [request.message]
+    else:
+        # Backward compatibility: full message history
+        messages = request.messages or []
     
     # Get or create conversation
     session = get_session()
@@ -145,6 +154,16 @@ async def handle_chat_data(request: Request, protocol: str = Query('data')):
     # Convert messages to format suitable for agent
     openai_messages = convert_to_openai_messages(messages)
     
+    # Use FileSessionManager for Strands Agent to persist session state
+    session_manager = FileSessionManager(session_id=conversation_id)
+    
+    # Create agent with session manager
+    agent_with_session = Agent(
+        model=model,
+        tools=STRANDS_TOOLS,
+        session_manager=session_manager
+    )
+    
     # Define onFinish callback to save AI response to database
     def on_finish_callback(buffered_message: dict):
         """Save the complete AI response to database."""
@@ -166,7 +185,7 @@ async def handle_chat_data(request: Request, protocol: str = Query('data')):
     async def generate():
         """Wrapper to ensure proper streaming without buffering"""
         async for chunk in stream_strands_agent(
-            agent, 
+            agent_with_session, 
             openai_messages, 
             protocol,
             on_finish=on_finish_callback

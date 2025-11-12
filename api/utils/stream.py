@@ -38,6 +38,7 @@ async def stream_strands_agent(
         text_finished = False
         tool_calls_state: Dict[str, Dict[str, Any]] = {}
         finish_reason = None
+        on_finish_called = False  # Track if on_finish has been called
         
         # Message buffer to collect the complete AI response
         message_parts = []
@@ -219,28 +220,19 @@ async def stream_strands_agent(
                             }
                             
                             # Call onFinish callback with buffered message
-                            if on_finish:
+                            if on_finish and not on_finish_called:
                                 on_finish({
                                     "role": "assistant",
                                     "parts": message_parts,
                                     "metadata": finish_metadata
                                 })
+                                on_finish_called = True
                             
                             yield format_sse({"type": "finish", "messageMetadata": finish_metadata})
         
         # Ensure text stream is ended
         if text_started and not text_finished:
             yield format_sse({"type": "text-end", "id": text_stream_id})
-        
-        # Call onFinish with final buffered message
-        if current_text_part:
-            message_parts.append(current_text_part)
-        if on_finish and finish_reason:
-            on_finish({
-                "role": "assistant",
-                "parts": message_parts,
-                "metadata": {"finishReason": finish_reason.replace("_", "-")} if finish_reason else {}
-            })
         
         yield "data: [DONE]\n\n"
         

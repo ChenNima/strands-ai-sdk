@@ -1,6 +1,7 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -42,6 +43,18 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
 
   const { messages, sendMessage, status } = useChat({
     id: conversationId,
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
+      // Only send the latest user message to reduce network payload
+      prepareSendMessagesRequest({ messages, id }) {
+        return {
+          body: {
+            message: messages[messages.length - 1],
+            id,
+          },
+        };
+      },
+    }),
   });
 
   const [input, setInput] = React.useState('');
