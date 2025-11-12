@@ -53,9 +53,9 @@ export const PreviewMessage = ({
                   return (
                     <div key={toolCallId}>
                       {toolName === "get_current_weather" ? (
-                        <Weather weatherAtLocation={output} />
+                        <Weather weatherAtLocation={JSON.parse(output)} />
                       ) : (
-                        <pre>{JSON.stringify(output, null, 2)}</pre>
+                        <pre>output</pre>
                       )}
                     </div>
                   );

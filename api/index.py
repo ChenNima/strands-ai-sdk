@@ -3,10 +3,11 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query, Request as FastAPIRequest
 from fastapi.responses import StreamingResponse
-from openai import OpenAI
+from strands import Agent
+from strands.models import BedrockModel
 from .utils.prompt import ClientMessage, convert_to_openai_messages
-from .utils.stream import patch_response_with_headers, stream_text
-from .utils.tools import AVAILABLE_TOOLS, TOOL_DEFINITIONS
+from .utils.stream import patch_response_with_headers, stream_strands_agent
+from .utils.tools import STRANDS_TOOLS
 from vercel import oidc
 from vercel.headers import set_headers
 
@@ -29,11 +30,24 @@ class Request(BaseModel):
 @app.post("/api/chat")
 async def handle_chat_data(request: Request, protocol: str = Query('data')):
     messages = request.messages
+    
+    # Create Strands Agent with Bedrock model
+    model = BedrockModel(
+        model_id="global.anthropic.claude-haiku-4-5-20251001-v1:0",
+        temperature=0.7,
+        streaming=True
+    )
+    
+    agent = Agent(
+        model=model,
+        tools=STRANDS_TOOLS
+    )
+    
+    # Convert messages to format suitable for agent
     openai_messages = convert_to_openai_messages(messages)
-
-    client = OpenAI(api_key=oidc.get_vercel_oidc_token(), base_url="https://ai-gateway.vercel.sh/v1")
+    
     response = StreamingResponse(
-        stream_text(client, openai_messages, TOOL_DEFINITIONS, AVAILABLE_TOOLS, protocol),
+        stream_strands_agent(agent, openai_messages, protocol),
         media_type="text/event-stream",
     )
     return patch_response_with_headers(response, protocol)

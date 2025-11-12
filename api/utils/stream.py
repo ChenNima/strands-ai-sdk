@@ -6,6 +6,166 @@ from typing import Any, Callable, Dict, Mapping, Sequence
 from fastapi.responses import StreamingResponse
 from openai import OpenAI
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
+from strands import Agent
+
+
+async def stream_strands_agent(
+    agent: Agent,
+    messages: Sequence[ChatCompletionMessageParam],
+    protocol: str = "data",
+):
+    """Yield Server-Sent Events for a streaming Strands Agent completion."""
+    try:
+        def format_sse(payload: dict) -> str:
+            return f"data: {json.dumps(payload, separators=(',', ':'))}\n\n"
+
+        message_id = f"msg-{uuid.uuid4().hex}"
+        text_stream_id = "text-1"
+        text_started = False
+        text_finished = False
+        tool_calls_state: Dict[str, Dict[str, Any]] = {}
+        finish_reason = None
+        
+        yield format_sse({"type": "start", "messageId": message_id})
+
+        # Get the last user message for the agent
+        if messages:
+            last_message = messages[-1]
+            user_input = last_message.get("content", "")
+            
+            # Stream agent response
+            async for event in agent.stream_async(user_input):
+                # Handle streaming text content
+                if 'event' in event and 'contentBlockDelta' in event['event']:
+                    content_block = event['event']['contentBlockDelta']
+                    if 'delta' in content_block:
+                        # Regular text content
+                        if 'text' in content_block['delta']:
+                            if not text_started:
+                                yield format_sse({"type": "text-start", "id": text_stream_id})
+                                text_started = True
+                            
+                            yield format_sse({
+                                "type": "text-delta",
+                                "id": text_stream_id,
+                                "delta": content_block['delta']['text']
+                            })
+                        
+                        # Reasoning content (thinking)
+                        elif 'reasoningContent' in content_block['delta'] and 'text' in content_block['delta']['reasoningContent']:
+                            if not text_started:
+                                yield format_sse({"type": "text-start", "id": text_stream_id})
+                                text_started = True
+                            
+                            # Stream reasoning as text (could be marked differently if needed)
+                            yield format_sse({
+                                "type": "text-delta",
+                                "id": text_stream_id,
+                                "delta": content_block['delta']['reasoningContent']['text']
+                            })
+                
+                # Handle complete message with tool calls and results
+                elif 'message' in event:
+                    if 'content' in event['message'] and isinstance(event['message']['content'], list):
+                        for content in event['message']['content']:
+                            if isinstance(content, dict):
+                                # Text content
+                                if 'text' in content:
+                                    if not text_started:
+                                        yield format_sse({"type": "text-start", "id": text_stream_id})
+                                        text_started = True
+                                    
+                                    yield format_sse({
+                                        "type": "text-delta",
+                                        "id": text_stream_id,
+                                        "delta": content['text']
+                                    })
+                                
+                                # Tool call
+                                elif 'toolUse' in content:
+                                    tool_use = content['toolUse']
+                                    tool_call_id = tool_use['toolUseId']
+                                    tool_name = tool_use['name']
+                                    tool_input = tool_use['input']
+                                    
+                                    # Track tool call state
+                                    tool_calls_state[tool_call_id] = {
+                                        "name": tool_name,
+                                        "input": tool_input,
+                                        "started": True
+                                    }
+                                    
+                                    # Emit tool-input-start
+                                    yield format_sse({
+                                        "type": "tool-input-start",
+                                        "toolCallId": tool_call_id,
+                                        "toolName": tool_name
+                                    })
+                                    
+                                    # Emit tool-input-available with parsed arguments
+                                    yield format_sse({
+                                        "type": "tool-input-available",
+                                        "toolCallId": tool_call_id,
+                                        "toolName": tool_name,
+                                        "input": tool_input
+                                    })
+                                
+                                # Tool result
+                                elif 'toolResult' in content:
+                                    tool_result = content['toolResult']
+                                    tool_call_id = tool_result['toolUseId']
+                                    status = tool_result['status']
+                                    
+                                    if status == 'success':
+                                        # Extract the actual result
+                                        result_content = tool_result.get('content', [])
+                                        if result_content and isinstance(result_content, list):
+                                            output = result_content[0].get('text', '') if result_content else ''
+                                        else:
+                                            output = str(result_content)
+                                        
+                                        yield format_sse({
+                                            "type": "tool-output-available",
+                                            "toolCallId": tool_call_id,
+                                            "output": output
+                                        })
+                                    else:
+                                        # Tool execution error
+                                        error_text = tool_result.get('content', [{}])[0].get('text', 'Tool execution failed')
+                                        yield format_sse({
+                                            "type": "tool-output-error",
+                                            "toolCallId": tool_call_id,
+                                            "errorText": error_text
+                                        })
+                
+                # Handle message stop
+                elif 'event' in event and 'messageStop' in event['event']:
+                    if 'stopReason' in event['event']['messageStop']:
+                        finish_reason = event['event']['messageStop']['stopReason']
+                        
+                        # Only send finish if not a tool use - tool use should continue for tool execution
+                        if finish_reason != "tool_use":
+                            # End text stream if it was started
+                            if text_started and not text_finished:
+                                yield format_sse({"type": "text-end", "id": text_stream_id})
+                                text_finished = True
+                            
+                            # Send finish message with metadata
+                            finish_metadata = {
+                                "finishReason": finish_reason.replace("_", "-")
+                            }
+                            
+                            yield format_sse({"type": "finish", "messageMetadata": finish_metadata})
+        
+        # Ensure text stream is ended
+        if text_started and not text_finished:
+            yield format_sse({"type": "text-end", "id": text_stream_id})
+        
+        yield "data: [DONE]\n\n"
+        
+    except Exception:
+        traceback.print_exc()
+        raise
 
 
 def stream_text(
