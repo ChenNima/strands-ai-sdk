@@ -75,6 +75,32 @@ async def get_conversation_messages(conversation_uuid: str):
         session.close()
 
 
+@app.delete("/api/conversations/{conversation_uuid}")
+async def delete_conversation(conversation_uuid: str):
+    """Delete a conversation and all its messages."""
+    session = get_session()
+    try:
+        # First delete all messages associated with this conversation
+        stmt = select(Message).where(
+            Message.conversation_uuid == UUID(conversation_uuid)
+        )
+        messages = session.exec(stmt).all()
+        for msg in messages:
+            session.delete(msg)
+        
+        # Then delete the conversation itself
+        stmt = select(Conversation).where(Conversation.uuid == UUID(conversation_uuid))
+        conversation = session.exec(stmt).first()
+        if conversation:
+            session.delete(conversation)
+            session.commit()
+            return {"success": True, "message": "Conversation deleted successfully"}
+        else:
+            return {"success": False, "message": "Conversation not found"}
+    finally:
+        session.close()
+
+
 @app.post("/api/chat")
 async def handle_chat_data(request: Request, protocol: str = Query('data')):
     conversation_id = request.id

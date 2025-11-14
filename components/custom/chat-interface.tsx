@@ -22,9 +22,17 @@ import { Tool, ToolContent, ToolHeader, ToolOutput } from '@/components/ai-eleme
 import { Loader } from '@/components/ai-elements/loader';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageSquareIcon, PlusIcon } from 'lucide-react';
+import { MessageSquareIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { Weather } from '@/components/weather';
 import { ThemeToggle } from '@/components/theme-toggle';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface ChatInterfaceProps {
   conversationId: string;
@@ -61,6 +69,9 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   const [input, setInput] = React.useState('');
   const [conversations, setConversations] = React.useState<ConversationItem[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = React.useState(true);
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [conversationToDelete, setConversationToDelete] = React.useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
   
   const isLoading = status === 'submitted' || status === 'streaming';
 
@@ -125,8 +136,77 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     setInput('');
   };
 
+  const handleDeleteClick = (uuid: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent selecting the conversation
+    setConversationToDelete(uuid);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!conversationToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/conversations/${conversationToDelete}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        // Remove from local state
+        setConversations(prev => prev.filter(conv => conv.uuid !== conversationToDelete));
+        
+        // If we deleted the current conversation, redirect to new chat
+        if (conversationToDelete === conversationId) {
+          const newId = crypto.randomUUID();
+          router.push(`/chat/${newId}`);
+        }
+      } else {
+        console.error('Failed to delete conversation');
+      }
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setConversationToDelete(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteDialogOpen(false);
+    setConversationToDelete(null);
+  };
+
   return (
-    <div className="flex h-screen w-full">
+    <>
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Conversation</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this conversation? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCancelDelete}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <div className="flex h-screen w-full">
       {/* Left Sidebar - Conversation List */}
       <div className="w-64 border-r bg-background flex flex-col">
         <div className="p-4 border-b">
@@ -155,17 +235,27 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
               </div>
             ) : (
               conversations.map((conv) => (
-                <Button
-                  key={conv.uuid}
-                  onClick={() => handleSelectConversation(conv.uuid)}
-                  variant={conversationId === conv.uuid ? 'default' : 'ghost'}
-                  className="w-full justify-start text-left h-auto py-2 px-3"
-                  title={conv.title}
-                >
-                  <div className="truncate text-sm">
-                    {conv.title}
-                  </div>
-                </Button>
+                <div key={conv.uuid} className="group relative">
+                  <Button
+                    onClick={() => handleSelectConversation(conv.uuid)}
+                    variant={conversationId === conv.uuid ? 'default' : 'ghost'}
+                    className="w-full justify-start text-left h-auto py-2 px-3 pr-10"
+                    title={conv.title}
+                  >
+                    <div className="truncate text-sm">
+                      {conv.title}
+                    </div>
+                  </Button>
+                  <Button
+                    onClick={(e) => handleDeleteClick(conv.uuid, e)}
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7"
+                    title="Delete conversation"
+                  >
+                    <Trash2Icon className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
               ))
             )}
           </div>
@@ -281,5 +371,6 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         </div>
       </div>
     </div>
+    </>
   );
 }
