@@ -63,7 +63,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           },
         };
       },
-    }),
+    }) as any,
   });
 
   const [input, setInput] = React.useState('');

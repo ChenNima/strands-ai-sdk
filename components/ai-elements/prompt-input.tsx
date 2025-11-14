@@ -1,6 +1,5 @@
 "use client";
 
-import type { UseChatHelpers } from "@ai-sdk/react";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -413,7 +412,10 @@ export const PromptInputActionAddAttachments = ({
   );
 };
 
-export type PromptInputMessage = UseChatHelpers<never>["sendMessage"];
+export type PromptInputMessage = {
+  text: string;
+  files: FileUIPart[];
+};
 
 export type PromptInputProps = Omit<
   HTMLAttributes<HTMLFormElement>,
@@ -1035,6 +1037,7 @@ interface SpeechRecognition extends EventTarget {
 
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList;
+  resultIndex: number;
 }
 
 type SpeechRecognitionResultList = {
@@ -1113,9 +1116,8 @@ export const PromptInputSpeechButton = ({
       speechRecognition.onresult = (event) => {
         let finalTranscript = "";
 
-        const results = Array.from(event.results);
-
-        for (const result of results) {
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
           if (result.isFinal) {
             finalTranscript += result[0]?.transcript ?? "";
           }
