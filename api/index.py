@@ -4,13 +4,11 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query, Request as FastAPIRequest
 from fastapi.responses import StreamingResponse
-from strands import Agent
-from strands.models import BedrockModel
+from strands.experimental import config_to_agent
 from strands.session.file_session_manager import FileSessionManager
 from sqlmodel import select
 from .utils.prompt import ClientMessage, convert_to_openai_messages
 from .utils.stream import patch_response_with_headers, stream_strands_agent
-from .utils.tools import STRANDS_TOOLS
 from .database.session import get_session
 from .models import Conversation, Message
 from vercel import oidc
@@ -139,28 +137,15 @@ async def handle_chat_data(request: Request, protocol: str = Query('data')):
     finally:
         session.close()
     
-    # Create Strands Agent with Bedrock model
-    model = BedrockModel(
-        model_id="global.anthropic.claude-haiku-4-5-20251001-v1:0",
-        temperature=0.7,
-        streaming=True
-    )
-    
-    agent = Agent(
-        model=model,
-        tools=STRANDS_TOOLS
-    )
-    
     # Convert messages to format suitable for agent
     openai_messages = convert_to_openai_messages(messages)
     
     # Use FileSessionManager for Strands Agent to persist session state
     session_manager = FileSessionManager(session_id=conversation_id)
     
-    # Create agent with session manager
-    agent_with_session = Agent(
-        model=model,
-        tools=STRANDS_TOOLS,
+    # Create agent from configuration file with session manager
+    agent_with_session = config_to_agent(
+        config="api/config/default_agent.json",
         session_manager=session_manager
     )
     

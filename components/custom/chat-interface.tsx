@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageSquareIcon, PlusIcon } from 'lucide-react';
 import { Weather } from '@/components/weather';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 interface ChatInterfaceProps {
   conversationId: string;
@@ -129,14 +130,17 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       {/* Left Sidebar - Conversation List */}
       <div className="w-64 border-r bg-background flex flex-col">
         <div className="p-4 border-b">
-          <Button 
-            onClick={handleNewChat}
-            className="w-full gap-2"
-            variant="default"
-          >
-            <PlusIcon className="size-4" />
-            New Chat
-          </Button>
+          <div className="flex gap-2">
+            <ThemeToggle />
+            <Button 
+              onClick={handleNewChat}
+              className="flex-1 gap-2"
+              variant="default"
+            >
+              <PlusIcon className="size-4" />
+              New Chat
+            </Button>
+          </div>
         </div>
         
         <ScrollArea className="flex-1">
