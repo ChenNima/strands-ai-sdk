@@ -4,10 +4,6 @@ This is a scaffold application that demonstrates the integration of [Strands Age
 
 The application uses [Strands Agents](https://github.com/strands-agents/sdk-python) for building intelligent AI agents with tool support, powered by Amazon Bedrock models.
 
-## Deploy your own
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel-labs/ai-sdk-preview-python-streaming)
-
 ## Features
 
 - **Strands Agent Integration**: Use the model-driven Strands Agents SDK for flexible AI agent development
@@ -38,9 +34,8 @@ To run this scaffold locally:
 
 3. Set up the environment:
    - `pnpm install` to install Node dependencies
-   - `python -m venv venv` to create a Python virtual environment
-   - `source venv/bin/activate` to activate the virtual environment (or `.venv\Scripts\activate` on Windows)
-   - `pip install -e .` to install Python dependencies from `pyproject.toml`
+   - Install [uv](https://docs.astral.sh/uv/) for Python package management: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+   - `uv sync` to create virtual environment and install Python dependencies from `pyproject.toml`
 
 4. Configure environment variables in `.env.local`:
    - Set `DATABASE_URL` for PostgreSQL connection
@@ -154,13 +149,6 @@ handle_chat_data
 4. **Add Database Features**: Extend models in `/api/models/`
    - Add new fields to Conversation or Message
    - Create new models for additional features
-
-## Performance Optimizations
-
-- **Network Optimization**: Uses `DefaultChatTransport.prepareSendMessagesRequest` to send only the latest message, reducing bandwidth by up to 95% for longer conversations
-- **Message Buffering**: Complete messages are buffered server-side before database persistence
-- **Session Management**: FileSessionManager maintains agent state efficiently
-- **Streaming**: Real-time streaming prevents unnecessary buffering on client
 
 ## Learn More
 
