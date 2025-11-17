@@ -12,6 +12,7 @@ The application uses [Strands Agents](https://github.com/strands-agents/sdk-pyth
 
 - **Strands Agent Integration**: Use the model-driven Strands Agents SDK for flexible AI agent development
 - **Tool Support**: Built-in support for tool/function calling with streaming responses
+- **Tool Approval**: Human-in-the-loop workflow with interactive approval for sensitive tool operations
 - **Amazon Bedrock**: Powered by Amazon Bedrock models (Claude Haiku by default)
 - **Real-time Streaming**: Full streaming support with Vercel AI SDK protocol
 - **Next.js + FastAPI**: Modern full-stack application with frontend and backend
@@ -19,9 +20,8 @@ The application uses [Strands Agents](https://github.com/strands-agents/sdk-pyth
 - **PostgreSQL Integration**: Full message history persistence and retrieval
 - **Message Buffering**: Complete message buffering and database persistence via onFinish callbacks
 - **Strands FileSessionManager**: Automatic session state management and recovery
-- **Network Optimization**: Optimized message sending with `DefaultChatTransport` and `prepareSendMessagesRequest` - only sends latest message to reduce bandwidth
+- **Network Optimization**: Optimized message sending - only sends latest message to reduce bandwidth
 - **Conversation History**: Left sidebar with conversation list and quick navigation
-- **Message Persistence**: Both streaming display and database persistence for complete audit trail
 
 ## How to use
 

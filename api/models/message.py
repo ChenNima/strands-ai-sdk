@@ -18,6 +18,11 @@ class MessageBase(SQLModel):
         foreign_key="conversations.uuid",
         description="Conversation UUID this message belongs to"
     )
+    message_id: Optional[str] = Field(
+        default=None,
+        max_length=255,
+        description="AI SDK message ID for tracking message lifecycle"
+    )
     role: str = Field(
         max_length=50,
         description="Message role: user, assistant, system, tool"

@@ -38,6 +38,118 @@ interface ChatInterfaceProps {
   conversationId: string;
 }
 
+// Separate component for Tool rendering with state management
+function ToolRenderer({ 
+  part, 
+  toolCallId, 
+  toolName,
+  addToolApprovalResponse,
+  sendMessage 
+}: { 
+  part: any;
+  toolCallId: string;
+  toolName: string;
+  addToolApprovalResponse: any;
+  sendMessage: any;
+}) {
+  const { state, output, approval, input } = part;
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  // Automatically open when approval is requested
+  React.useEffect(() => {
+    if (state === 'approval-requested') {
+      setIsOpen(true);
+    }
+  }, [state]);
+
+  return (
+    <div className="my-2">
+      <Tool open={isOpen} onOpenChange={setIsOpen}>
+        <ToolHeader 
+          type={part.type}
+          state={state}
+          title={toolName}
+        />
+        <ToolContent>
+          {/* Show approval request if tool requires approval */}
+          {state === 'approval-requested' && approval && (
+            <div className="space-y-3 p-3">
+              <div className="text-sm">
+                <div className="font-medium mb-2">Tool requires approval:</div>
+                <div className="bg-muted rounded p-2 font-mono text-xs">
+                  {JSON.stringify(input, null, 2)}
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    await addToolApprovalResponse({
+                      id: approval?.id,
+                      approved: true,
+                    });
+                    sendMessage();
+                  }}
+                >
+                  Approve
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={async () => {
+                    await addToolApprovalResponse({
+                      id: approval?.id,
+                      approved: false,
+                    });
+                    sendMessage();
+                  }}
+                >
+                  Deny
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Show input if available */}
+          {input && state !== 'approval-requested' && (
+            <div className="p-3 border-b">
+              <div className="text-sm font-medium mb-2">Input:</div>
+              <div className="bg-muted rounded p-2 font-mono text-xs">
+                {JSON.stringify(input, null, 2)}
+              </div>
+            </div>
+          )}
+
+          {/* Show output when available */}
+          {state === 'output-available' && output && (
+            <ToolOutput 
+              output={
+                toolName === 'get_current_weather' ? (
+                  <Weather weatherAtLocation={typeof output === 'string' ? JSON.parse(output) : output} />
+                ) : (
+                  <pre className="text-xs">{typeof output === 'string' ? output : JSON.stringify(output, null, 2)}</pre>
+                )
+              }
+              errorText={undefined}
+            />
+          )}
+
+          {/* Show loading state while tool is executing */}
+          {state === 'input-streaming' && (
+            <div className="flex items-center gap-2 p-2">
+              <Loader size={16} />
+              <span className="text-sm text-muted-foreground">
+                {toolName === 'get_current_weather' ? 'Getting weather...' : `Executing ${toolName}...`}
+              </span>
+            </div>
+          )}
+        </ToolContent>
+      </Tool>
+    </div>
+  );
+}
+
 interface ConversationItem {
   uuid: string;
   title: string;
@@ -47,10 +159,9 @@ interface ConversationItem {
 
 export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   const router = useRouter();
-  const [historicalMessages, setHistoricalMessages] = React.useState<any[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = React.useState(true);
 
-  const { messages, sendMessage, status } = useChat({
+  const { messages, sendMessage, addToolApprovalResponse, setMessages, status } = useChat({
     id: conversationId,
     transport: new DefaultChatTransport({
       api: '/api/chat',
@@ -99,10 +210,10 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         setIsLoadingMessages(true);
         const response = await fetch(`/api/conversations/${conversationId}/messages`);
         const data = await response.json();
-        setHistoricalMessages(data);
+        setMessages(data);
       } catch (error) {
         console.error('Failed to fetch messages:', error);
-        setHistoricalMessages([]);
+        setMessages([]);
       } finally {
         setIsLoadingMessages(false);
       }
@@ -111,12 +222,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     if (conversationId) {
       fetchMessages();
     }
-  }, [conversationId]);
-
-  // Combine historical messages with current messages
-  const allMessages = React.useMemo(() => {
-    return [...historicalMessages, ...messages];
-  }, [historicalMessages, messages]);
+  }, [conversationId, setMessages]);
 
   const handleNewChat = () => {
     const newId = crypto.randomUUID();
@@ -268,7 +374,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         <Conversation className="flex-1">
           {/* @ts-ignore - ConversationContent component has type definition issues but works correctly */}
           <ConversationContent>
-            {allMessages.length === 0 ? (
+            {messages.length === 0 ? (
               <ConversationEmptyState
                 title="Start a conversation"
                 description="Ask me anything about the weather or other topics"
@@ -276,7 +382,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
               />
             ) : (
               <>
-                {allMessages.map((message) => (
+                {messages.map((message) => (
                   <Message from={message.role} key={message.id}>
                     <MessageContent>
                       {message.parts.map((part: any, i: number) => {
@@ -291,50 +397,20 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
                         
                         // Handle tool calls - type is "tool-{toolName}" in AI SDK
                         if (part.type?.startsWith('tool-')) {
-                          const { toolCallId, state, output } = part;
+                          const { toolCallId } = part;
+                          console.log(part);
                           const toolName = part.type.replace('tool-', '');
 
-                          // Show output when available
-                          if (state === 'output-available' && output) {
-                            return (
-                              <div key={toolCallId} className="my-2">
-                                <Tool>
-                                  <ToolHeader type="tool-call" state={state} />
-                                  <ToolContent>
-                                    <ToolOutput 
-                                      output={
-                                        toolName === 'get_current_weather' ? (
-                                          <Weather weatherAtLocation={typeof output === 'string' ? JSON.parse(output) : output} />
-                                        ) : (
-                                          <pre className="text-xs">{typeof output === 'string' ? output : JSON.stringify(output, null, 2)}</pre>
-                                        )
-                                      }
-                                      errorText={undefined}
-                                    />
-                                  </ToolContent>
-                                </Tool>
-                              </div>
-                            );
-                          }
-
-                          // Show loading state while tool is executing
-                          if (state === 'input-streaming' || state === 'input-available') {
-                            return (
-                              <div key={toolCallId} className="my-2">
-                                <Tool>
-                                  <ToolHeader type="tool-call" state={state} />
-                                  <ToolContent>
-                                    {toolName === 'get_current_weather' && (
-                                      <div className="flex items-center gap-2 p-2">
-                                        <Loader size={16} />
-                                        <span className="text-sm text-muted-foreground">Getting weather...</span>
-                                      </div>
-                                    )}
-                                  </ToolContent>
-                                </Tool>
-                              </div>
-                            );
-                          }
+                          return (
+                            <ToolRenderer
+                              key={toolCallId}
+                              part={part}
+                              toolCallId={toolCallId}
+                              toolName={toolName}
+                              addToolApprovalResponse={addToolApprovalResponse}
+                              sendMessage={sendMessage}
+                            />
+                          );
                         }
                         
                         return null;

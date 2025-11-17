@@ -38,6 +38,7 @@ class ClientMessagePart(BaseModel):
 
 
 class ClientMessage(BaseModel):
+    id: str
     role: str
     content: Optional[str] = None
     parts: Optional[List[ClientMessagePart]] = None

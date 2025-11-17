@@ -1,17 +1,23 @@
 import json
 import traceback
 import uuid
-from typing import Any, Callable, Dict, Mapping, Sequence
+from typing import Any, Callable, Dict, List, Mapping, Sequence
 
 from fastapi.responses import StreamingResponse
 from openai import OpenAI
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from strands import Agent
 
+# Import ClientMessage type from prompt module
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from api.utils.prompt import ClientMessage, convert_to_openai_messages
+
 
 async def stream_strands_agent(
     agent: Agent,
-    messages: Sequence[ChatCompletionMessageParam],
+    messages: List[ClientMessage],
     protocol: str = "data",
     on_finish: Callable[[Dict[str, Any]], None] = None,
 ):
@@ -19,7 +25,7 @@ async def stream_strands_agent(
     
     Args:
         agent: The Strands Agent instance
-        messages: Chat messages to send to the agent
+        messages: AI SDK format messages (ClientMessage list)
         protocol: The protocol for SSE events
         on_finish: Optional callback that receives the complete buffered message
                   in the format: {
@@ -32,7 +38,6 @@ async def stream_strands_agent(
         def format_sse(payload: dict) -> str:
             return f"data: {json.dumps(payload, separators=(',', ':'))}\n\n"
 
-        message_id = f"msg-{uuid.uuid4().hex}"
         text_stream_id = f"text-{uuid.uuid4().hex[:8]}"
         text_started = False
         text_finished = False
@@ -43,16 +48,58 @@ async def stream_strands_agent(
         # Message buffer to collect the complete AI response
         message_parts = []
         current_text_part = None
-        
-        yield format_sse({"type": "start", "messageId": message_id})
 
-        # Get the last user message for the agent
+        # Check if this is an approval response message and extract interrupt responses
+        interrupt_responses = []
+        is_approval_response = False
+        previous_approval_part = None  # Store the previous approval part to restore later
+        
         if messages:
             last_message = messages[-1]
-            user_input = last_message.get("content", "")
-            
-            # Stream agent response
-            async for event in agent.stream_async(user_input):
+            # Check if the message contains approval-responded parts
+            if last_message.parts:
+                for part in last_message.parts:
+                    if part.state == 'approval-responded' and hasattr(part, 'approval'):
+                        is_approval_response = True
+                        approval = part.approval
+                        
+                        # Store the part for later use (to restore with output-available state)
+                        previous_approval_part = part
+                        
+                        # approval is stored as extra field (dict) due to ConfigDict(extra="allow")
+                        interrupt_id = approval.get('id') if isinstance(approval, dict) else getattr(approval, 'id', None)
+                        approved = approval.get('approved', False) if isinstance(approval, dict) else getattr(approval, 'approved', False)
+                        
+                        # Convert to Strands Agent interrupt response format
+                        interrupt_responses.append({
+                            "interruptResponse": {
+                                "interruptId": interrupt_id,
+                                "response": 'y' if approved else 'n'
+                            }
+                        })
+        
+        # Set message_id: use existing id if resuming from interrupt, otherwise generate new
+        if is_approval_response and messages:
+            message_id = getattr(messages[-1], 'id', f"msg-{uuid.uuid4().hex}")
+        else:
+            message_id = f"msg-{uuid.uuid4().hex}"
+        
+        yield format_sse({"type": "start", "messageId": message_id})
+        
+        # Determine agent input
+        if is_approval_response and interrupt_responses:
+            # For approval responses, pass interrupt responses directly to agent
+            agent_input = interrupt_responses
+        else:
+            # Convert AI SDK messages to OpenAI format for agent
+            openai_messages = convert_to_openai_messages(messages)
+            # Extract content from last message
+            if openai_messages:
+                last_message = openai_messages[-1]
+                agent_input = last_message.get("content", "")
+        
+        # Stream agent response
+        async for event in agent.stream_async(agent_input):
                 # Handle streaming text content
                 if 'event' in event and 'contentBlockDelta' in event['event']:
                     content_block = event['event']['contentBlockDelta']
@@ -166,10 +213,35 @@ async def stream_strands_agent(
                                         else:
                                             output = str(result_content)
                                         
-                                        # Add tool result part to buffer
+                                        # Find existing part or restore from previous approval
+                                        existing_part = None
                                         if message_parts and message_parts[-1].get("toolCallId") == tool_call_id:
-                                            message_parts[-1]["output"] = output
-                                            message_parts[-1]["state"] = "output-available"
+                                            existing_part = message_parts[-1]
+                                        
+                                        # If not found in message_parts, check previous approval part
+                                        if not existing_part and previous_approval_part:
+                                            if hasattr(previous_approval_part, 'toolCallId') and previous_approval_part.toolCallId == tool_call_id:
+                                                # Restore the part from previous approval
+                                                restored_part = {
+                                                    "type": previous_approval_part.type,
+                                                    "toolCallId": tool_call_id,
+                                                    "toolName": getattr(previous_approval_part, 'toolName', 'unknown'),
+                                                    "state": "output-available",
+                                                    "input": getattr(previous_approval_part, 'input', {}),
+                                                    "output": output
+                                                }
+                                                
+                                                # Add approval information if available
+                                                if hasattr(previous_approval_part, 'approval'):
+                                                    restored_part["approval"] = previous_approval_part.approval
+                                                
+                                                message_parts.append(restored_part)
+                                                existing_part = restored_part
+                                        
+                                        # Update existing part with output
+                                        if existing_part:
+                                            existing_part["output"] = output
+                                            existing_part["state"] = "output-available"
                                         
                                         yield format_sse({
                                             "type": "tool-output-available",
@@ -197,6 +269,52 @@ async def stream_strands_agent(
                                         text_started = False
                                         text_finished = False
                 
+                # Handle tool interrupt event (requires user approval)
+                elif 'tool_interrupt_event' in event:
+                    interrupt_event = event['tool_interrupt_event']
+                    tool_use = interrupt_event.get('tool_use', {})
+                    interrupts = interrupt_event.get('interrupts', [])
+                    
+                    tool_call_id = tool_use.get('toolUseId')
+                    tool_name = tool_use.get('name')
+                    
+                    if tool_call_id and interrupts:
+                        # Find the existing part with matching toolCallId in message_parts
+                        existing_part = None
+                        for part in message_parts:
+                            if part.get("toolCallId") == tool_call_id:
+                                existing_part = part
+                                break
+                        
+                        if existing_part:
+                            # Update the existing part's state to approval-requested
+                            existing_part["state"] = "approval-requested"
+                            
+                            # Add approval field with interrupt id and optional reason
+                            approval_data = {
+                                "id": interrupts[0].id
+                            }
+                            
+                            # Add reason if available (convert to text if necessary)
+                            if interrupts[0].reason:
+                                reason_text = interrupts[0].reason
+                                if isinstance(reason_text, dict):
+                                    reason_text = json.dumps(reason_text)
+                                elif not isinstance(reason_text, str):
+                                    reason_text = str(reason_text)
+                                approval_data["reason"] = reason_text
+                            
+                            existing_part["approval"] = approval_data
+                            
+                            # Send tool-approval-request event
+                            tool_data = {
+                                "type": "tool-approval-request",
+                                "toolCallId": tool_call_id,
+                                "approvalId": interrupts[0].id
+                            }
+                            
+                            yield format_sse(tool_data)
+                
                 # Handle message stop
                 elif 'event' in event and 'messageStop' in event['event']:
                     if 'stopReason' in event['event']['messageStop']:
@@ -221,11 +339,14 @@ async def stream_strands_agent(
                             
                             # Call onFinish callback with buffered message
                             if on_finish and not on_finish_called:
-                                on_finish({
-                                    "role": "assistant",
-                                    "parts": message_parts,
-                                    "metadata": finish_metadata
-                                })
+                                on_finish(
+                                    {
+                                        "role": "assistant",
+                                        "parts": message_parts,
+                                        "metadata": finish_metadata
+                                    },
+                                    message_id=message_id
+                                )
                                 on_finish_called = True
                             
                             yield format_sse({"type": "finish", "messageMetadata": finish_metadata})
@@ -233,6 +354,24 @@ async def stream_strands_agent(
         # Ensure text stream is ended
         if text_started and not text_finished:
             yield format_sse({"type": "text-end", "id": text_stream_id})
+        
+        # Save any remaining message parts before exiting
+        # This ensures tool calls and other parts are saved even if messageStop wasn't reached
+        if message_parts and on_finish and not on_finish_called:
+            # Save remaining text part if exists
+            if current_text_part:
+                message_parts.append(current_text_part)
+                current_text_part = None
+            
+            on_finish(
+                {
+                    "role": "assistant",
+                    "parts": message_parts,
+                    "metadata": {"finishReason": finish_reason.replace("_", "-") if finish_reason else "unknown"}
+                },
+                message_id=message_id
+            )
+            on_finish_called = True
         
         yield "data: [DONE]\n\n"
         

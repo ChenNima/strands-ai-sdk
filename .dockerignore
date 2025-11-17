@@ -93,3 +93,5 @@ postgres-data/
 tmp/
 temp/
 *.tmp
+
+sessions

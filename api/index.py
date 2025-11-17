@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from strands.experimental import config_to_agent
 from strands.session.file_session_manager import FileSessionManager
 from sqlmodel import select
-from .utils.prompt import ClientMessage, convert_to_openai_messages
+from .utils.prompt import ClientMessage
 from .utils.stream import patch_response_with_headers, stream_strands_agent
 from .database.session import get_session
 from .models import Conversation, Message
@@ -62,14 +62,63 @@ async def get_conversation_messages(conversation_uuid: str):
             Message.conversation_uuid == UUID(conversation_uuid)
         ).order_by(Message.created_at.asc())
         messages = session.exec(stmt).all()
+        
+        # Group messages by message_id and merge parts
+        merged_messages = {}
+        message_order = []  # Track order of first appearance
+        
+        for msg in messages:
+            msg_id = msg.message_id or str(msg.uuid)
+            
+            if msg_id not in merged_messages:
+                # First occurrence of this message_id
+                merged_messages[msg_id] = {
+                    "id": msg_id,
+                    "role": msg.role,
+                    "content": msg.content,
+                    "parts": msg.parts or [],
+                    "tool_call_map": {}  # Track tool calls by toolCallId
+                }
+                
+                # Build initial tool call map
+                for i, part in enumerate(merged_messages[msg_id]["parts"]):
+                    if isinstance(part, dict) and "toolCallId" in part:
+                        merged_messages[msg_id]["tool_call_map"][part["toolCallId"]] = i
+                
+                message_order.append(msg_id)
+            else:
+                # Merge parts from messages with same message_id
+                existing = merged_messages[msg_id]
+                new_parts = msg.parts or []
+                
+                for part in new_parts:
+                    if isinstance(part, dict) and "toolCallId" in part:
+                        tool_call_id = part["toolCallId"]
+                        if tool_call_id in existing["tool_call_map"]:
+                            # Replace existing tool call with same toolCallId
+                            idx = existing["tool_call_map"][tool_call_id]
+                            existing["parts"][idx] = part
+                        else:
+                            # New tool call, append and track
+                            existing["parts"].append(part)
+                            existing["tool_call_map"][tool_call_id] = len(existing["parts"]) - 1
+                    else:
+                        # Not a tool call part, just append
+                        existing["parts"].append(part)
+                
+                # Update other fields from the latest message
+                existing["role"] = msg.role
+                existing["content"] = msg.content
+        
+        # Return merged messages in original order
         return [
             {
-                "id": str(msg.uuid),
-                "role": msg.role,
-                "content": msg.content,
-                "parts": msg.parts or [],
+                "id": merged_messages[msg_id]["id"],
+                "role": merged_messages[msg_id]["role"],
+                "content": merged_messages[msg_id]["content"],
+                "parts": merged_messages[msg_id]["parts"],
             }
-            for msg in messages
+            for msg_id in message_order
         ]
     finally:
         session.close()
@@ -163,11 +212,8 @@ async def handle_chat_data(request: Request, protocol: str = Query('data')):
     finally:
         session.close()
     
-    # Convert messages to format suitable for agent
-    openai_messages = convert_to_openai_messages(messages)
-    
     # Use FileSessionManager for Strands Agent to persist session state
-    session_manager = FileSessionManager(session_id=conversation_id)
+    session_manager = FileSessionManager(session_id=conversation_id, storage_dir="./sessions")
     
     # Create agent from configuration file with session manager
     agent_with_session = config_to_agent(
@@ -176,12 +222,13 @@ async def handle_chat_data(request: Request, protocol: str = Query('data')):
     )
     
     # Define onFinish callback to save AI response to database
-    def on_finish_callback(buffered_message: dict):
+    def on_finish_callback(buffered_message: dict, message_id: str = None):
         """Save the complete AI response to database."""
         try:
             db_session = get_session()
             ai_message = Message(
                 conversation_uuid=UUID(conversation_id),
+                message_id=message_id,  # Store AI SDK message ID
                 role=buffered_message["role"],
                 content=None,  # Content can be None, parts contain the actual data
                 parts=buffered_message["parts"]
@@ -197,7 +244,7 @@ async def handle_chat_data(request: Request, protocol: str = Query('data')):
         """Wrapper to ensure proper streaming without buffering"""
         async for chunk in stream_strands_agent(
             agent_with_session, 
-            openai_messages, 
+            messages,  # Pass AI SDK format messages directly
             protocol,
             on_finish=on_finish_callback
         ):
