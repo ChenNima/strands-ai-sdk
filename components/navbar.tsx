@@ -1,25 +1,53 @@
 "use client";
 
-import { Button } from "./ui/button";
-import { GitIcon, VercelIcon } from "./icons";
 import Link from "next/link";
+import { useAuth } from "@/contexts/auth-context";
+import { Button } from "./ui/button";
+import { LogOut, User } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 
 export const Navbar = () => {
-  return <></>
-  return (
-    <div className="p-2 flex flex-row gap-2 justify-between">
-      <Link href="https://github.com/vercel-labs/ai-sdk-preview-python-streaming">
-        <Button variant="outline">
-          <GitIcon /> View Source Code
-        </Button>
-      </Link>
+  const { user, isAuthenticated, logout } = useAuth();
 
-      <Link href="https://vercel.com/new/clone?repository-url=https://github.com/vercel-labs/ai-sdk-preview-python-streaming">
-        <Button>
-          <VercelIcon />
-          Deploy with Vercel
-        </Button>
+  return (
+    <div className="p-2 flex flex-row gap-2 justify-between items-center border-b">
+      <Link href="/chat">
+        <h1 className="text-lg font-semibold">Strands AI SDK</h1>
       </Link>
+      
+      {isAuthenticated && user && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm">
+              <User className="mr-2 h-4 w-4" />
+              {user.profile?.name || user.profile?.email || 'User'}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {user.profile?.email && (
+              <>
+                <DropdownMenuLabel className="font-normal text-sm text-muted-foreground">
+                  {user.profile.email}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+              </>
+            )}
+            <DropdownMenuItem onClick={logout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </div>
   );
 };

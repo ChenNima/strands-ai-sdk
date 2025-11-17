@@ -312,9 +312,9 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         </DialogContent>
       </Dialog>
 
-      <div className="flex h-screen w-full">
+      <div className="flex h-full w-full">
       {/* Left Sidebar - Conversation List */}
-      <div className="w-64 border-r bg-background flex flex-col">
+      <div className="w-64 border-r bg-background flex flex-col h-full">
         <div className="p-4 border-b">
           <div className="flex gap-2">
             <ThemeToggle />
@@ -369,7 +369,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex flex-col h-screen w-full flex-1">
+      <div className="flex flex-col h-full w-full flex-1">
         {/* @ts-ignore - Conversation component has type definition issues but works correctly */}
         <Conversation className="flex-1">
           {/* @ts-ignore - ConversationContent component has type definition issues but works correctly */}
