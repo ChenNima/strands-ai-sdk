@@ -1,16 +1,18 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from uuid import UUID
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from fastapi import FastAPI, Query, Request as FastAPIRequest
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, Query, Request as FastAPIRequest, Depends, HTTPException
+from fastapi.responses import StreamingResponse, JSONResponse
 from strands.experimental import config_to_agent
 from strands.session.file_session_manager import FileSessionManager
 from sqlmodel import select
 from .utils.prompt import ClientMessage
 from .utils.stream import patch_response_with_headers, stream_strands_agent
+from .utils.auth import get_current_user, verify_token
 from .database.session import get_session
 from .models import Conversation, Message
+import os
 from vercel import oidc
 from vercel.headers import set_headers
 
@@ -26,6 +28,65 @@ async def _vercel_set_headers(request: FastAPIRequest, call_next):
     return await call_next(request)
 
 
+@app.middleware("http")
+async def authenticate_requests(request: FastAPIRequest, call_next):
+    """
+    Global authentication middleware for all API routes.
+    Verifies JWT token for all /api/* endpoints.
+    """
+    # Skip authentication for health check and public endpoints
+    public_paths = ["/health", "/docs", "/openapi.json", "/redoc"]
+    
+    # Check if this is an API endpoint that requires authentication
+    if request.url.path.startswith("/api/"):
+        # Get authorization header
+        auth_header = request.headers.get("authorization")
+        
+        if not auth_header:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Authorization header missing"}
+            )
+        
+        # Extract Bearer token
+        parts = auth_header.split()
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid authorization header format"}
+            )
+        
+        token = parts[1]
+        
+        # Get OIDC configuration
+        issuer = os.getenv("OIDC_ISSUER")
+        audience = os.getenv("OIDC_CLIENT_ID")
+        
+        if not issuer:
+            return JSONResponse(
+                status_code=500,
+                content={"detail": "OIDC_ISSUER not configured"}
+            )
+        
+        # Verify token
+        try:
+            user_claims = verify_token(token, issuer, audience)
+            # Store user claims in request state for use in route handlers
+            request.state.user = user_claims
+        except HTTPException as e:
+            return JSONResponse(
+                status_code=e.status_code,
+                content={"detail": e.detail}
+            )
+        except Exception as e:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": f"Token verification failed: {str(e)}"}
+            )
+    
+    return await call_next(request)
+
+
 class Request(BaseModel):
     id: str
     message: Optional[ClientMessage] = None  # Single message from optimized client
@@ -34,8 +95,9 @@ class Request(BaseModel):
 
 
 @app.get("/api/conversations")
-async def get_conversations():
+async def get_conversations(request: FastAPIRequest):
     """Get all conversations for the current user."""
+    # User info is available in request.state.user (set by middleware)
     session = get_session()
     try:
         stmt = select(Conversation).order_by(Conversation.updated_at.desc())
@@ -54,8 +116,9 @@ async def get_conversations():
 
 
 @app.get("/api/conversations/{conversation_uuid}/messages")
-async def get_conversation_messages(conversation_uuid: str):
+async def get_conversation_messages(conversation_uuid: str, request: FastAPIRequest):
     """Get all messages for a specific conversation."""
+    # User info is available in request.state.user (set by middleware)
     session = get_session()
     try:
         stmt = select(Message).where(
@@ -125,8 +188,9 @@ async def get_conversation_messages(conversation_uuid: str):
 
 
 @app.delete("/api/conversations/{conversation_uuid}")
-async def delete_conversation(conversation_uuid: str):
+async def delete_conversation(conversation_uuid: str, request: FastAPIRequest):
     """Delete a conversation and all its messages."""
+    # User info is available in request.state.user (set by middleware)
     session = get_session()
     try:
         # First delete all messages associated with this conversation
@@ -151,7 +215,15 @@ async def delete_conversation(conversation_uuid: str):
 
 
 @app.post("/api/chat")
-async def handle_chat_data(request: Request, protocol: str = Query('data')):
+async def handle_chat_data(
+    request: Request,
+    fastapi_request: FastAPIRequest,
+    protocol: str = Query('data')
+):
+    """
+    Chat endpoint with OIDC authentication.
+    User info is available in fastapi_request.state.user (set by middleware)
+    """
     conversation_id = request.id
     
     # Handle both optimized format (single message) and backward compatibility (full history)

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: strands-ai-sdk
 Version: 0.1.0
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Requires-Dist: alembic>=1.17.1
 Requires-Dist: annotated-types==0.7.0
 Requires-Dist: anyio==4.11.0
@@ -34,3 +34,4 @@ Requires-Dist: uvicorn==0.38.0
 Requires-Dist: vercel==0.3.5
 Requires-Dist: vercel-sandbox==0.0.3
 Requires-Dist: vercel-sdk==0.0.8
+Requires-Dist: python-jose[cryptography]==3.5.0

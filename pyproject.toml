@@ -1,7 +1,7 @@
 [project]
 name = "strands-ai-sdk"
 version = "0.1.0"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "alembic>=1.17.1",
     "annotated-types==0.7.0",
@@ -35,6 +35,7 @@ dependencies = [
     "vercel==0.3.5",
     "vercel-sandbox==0.0.3",
     "vercel-sdk==0.0.8",
+    "python-jose[cryptography]==3.5.0",
 ]
 
 [tool.setuptools]

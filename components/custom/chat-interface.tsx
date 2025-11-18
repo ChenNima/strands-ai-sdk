@@ -25,6 +25,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageSquareIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { Weather } from '@/components/weather';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { useAuth } from '@/contexts/auth-context';
+import { api } from '@/lib/api-client';
 import {
   Dialog,
   DialogContent,
@@ -160,11 +162,18 @@ interface ConversationItem {
 export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   const router = useRouter();
   const [isLoadingMessages, setIsLoadingMessages] = React.useState(true);
+  const { getAccessToken } = useAuth();
 
   const { messages, sendMessage, addToolApprovalResponse, setMessages, status } = useChat({
     id: conversationId,
     transport: new DefaultChatTransport({
       api: '/api/chat',
+      headers: async (): Promise<Record<string, string>> => {
+        const token = await getAccessToken();
+        return token ? {
+          'Authorization': `Bearer ${token}`,
+        } : {};
+      },
       // Only send the latest user message to reduce network payload
       prepareSendMessagesRequest({ messages, id }) {
         return {
@@ -190,8 +199,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   React.useEffect(() => {
     const fetchConversations = async () => {
       try {
-        const response = await fetch('/api/conversations');
-        const data = await response.json();
+        const data = await api.getConversations();
         setConversations(data);
       } catch (error) {
         console.error('Failed to fetch conversations:', error);
@@ -208,8 +216,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     const fetchMessages = async () => {
       try {
         setIsLoadingMessages(true);
-        const response = await fetch(`/api/conversations/${conversationId}/messages`);
-        const data = await response.json();
+        const data = await api.getConversationMessages(conversationId);
         setMessages(data);
       } catch (error) {
         console.error('Failed to fetch messages:', error);
@@ -253,21 +260,15 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
 
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/conversations/${conversationToDelete}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        // Remove from local state
-        setConversations(prev => prev.filter(conv => conv.uuid !== conversationToDelete));
-        
-        // If we deleted the current conversation, redirect to new chat
-        if (conversationToDelete === conversationId) {
-          const newId = crypto.randomUUID();
-          router.push(`/chat/${newId}`);
-        }
-      } else {
-        console.error('Failed to delete conversation');
+      await api.deleteConversation(conversationToDelete);
+      
+      // Remove from local state
+      setConversations(prev => prev.filter(conv => conv.uuid !== conversationToDelete));
+      
+      // If we deleted the current conversation, redirect to new chat
+      if (conversationToDelete === conversationId) {
+        const newId = crypto.randomUUID();
+        router.push(`/chat/${newId}`);
       }
     } catch (error) {
       console.error('Error deleting conversation:', error);

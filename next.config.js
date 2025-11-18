@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // 环境变量映射 - 将后端环境变量暴露给前端
+  env: {
+    NEXT_PUBLIC_OIDC_ISSUER: process.env.OIDC_ISSUER,
+    NEXT_PUBLIC_OIDC_CLIENT_ID: process.env.OIDC_CLIENT_ID,
+  },
+
   // 优化生产构建
   compiler: {
     removeConsole: process.env.NODE_ENV === "production" ? {
