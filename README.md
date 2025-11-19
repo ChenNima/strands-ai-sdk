@@ -12,15 +12,15 @@ The application uses [Strands Agents](https://github.com/strands-agents/sdk-pyth
 - **Amazon Bedrock**: Powered by Amazon Bedrock models (Claude Haiku by default)
 - **Real-time Streaming**: Full streaming support with Vercel AI SDK protocol
 - **Next.js + FastAPI**: Modern full-stack application with frontend and backend
+- **OIDC Authentication**: Full OIDC integration with JWT token verification and user management
+- **Multi-User Support**: Complete user isolation with per-user conversation management
+- **MVC Architecture**: Clean separation of concerns with middleware, services, and routes layers
 - **Conversation Management**: UUID-based conversation tracking with persistent storage
-- **PostgreSQL Integration**: Full message history persistence and retrieval
+- **PostgreSQL Integration**: Full message history persistence and retrieval with user data
 - **Message Buffering**: Complete message buffering and database persistence via onFinish callbacks
 - **Strands FileSessionManager**: Automatic session state management and recovery
 - **Network Optimization**: Optimized message sending - only sends latest message to reduce bandwidth
 - **Conversation History**: Left sidebar with conversation list and quick navigation
-
-## How to use
-
 To run this scaffold locally:
 
 1. Configure AWS credentials for Amazon Bedrock access:
@@ -46,20 +46,45 @@ To run this scaffold locally:
 
 ## Project Structure
 
-- `/app` - Next.js frontend application
-  - `/app/page.tsx` - Home page (redirects to /chat for new conversation)
-  - `/app/chat/page.tsx` - Chat page (generates new UUID and redirects to /chat/[uuid])
-  - `/app/chat/[uuid]/page.tsx` - Specific conversation page
+### Frontend
+- `/app` - Next.js application pages
+  - `/app/page.tsx` - Home page (redirects to /chat)
+  - `/app/chat/[uuid]/page.tsx` - Chat page with conversation UUID
+  - `/app/login/page.tsx` - OIDC login page
+  - `/app/callback/page.tsx` - OIDC callback handler
 - `/components` - React components
-  - `/components/custom/chat-interface.tsx` - Main chat interface with conversation list sidebar
+  - `/components/custom/chat-interface.tsx` - Main chat interface with sidebar
   - `/components/ui/` - shadcn/ui components
-- `/api` - FastAPI backend with Strands Agent integration
-  - `/api/index.py` - Main API endpoints and agent handling
-  - `/api/utils/tools.py` - Tool definitions for the agent (e.g., weather tool)
-  - `/api/utils/stream.py` - Streaming protocol implementation with message buffering
+- `/contexts` - React contexts
+  - `/contexts/auth-context.tsx` - Authentication context with OIDC
+- `/lib` - Utility libraries
+  - `/lib/auth.ts` - OIDC authentication utilities
+  - `/lib/api-client.ts` - API client with automatic token injection
+
+### Backend (MVC Architecture)
+- `/api` - FastAPI backend
+  - `/api/index.py` - Main application entry point (30 lines)
+  - `/api/middleware/` - Middleware layer
+    - `auth.py` - Authentication middleware (JWT verification)
+  - `/api/services/` - Business logic layer
+    - `oidc_service.py` - OIDC user info with caching
+    - `user_service.py` - User management
+    - `conversation_service.py` - Conversation CRUD operations
+    - `agent_service.py` - Agent creation and message handling
+  - `/api/routes/` - API routes (controllers)
+    - `auth.py` - Authentication endpoints
+    - `conversations.py` - Conversation management endpoints
+    - `agent.py` - AI agent chat endpoint
   - `/api/models/` - SQLModel database models
-  - `/api/database/` - Database session and configuration
-- `pyproject.toml` - Python dependencies including strands-agents
+    - `user.py` - User model with OIDC integration
+    - `conversation.py` - Conversation model
+    - `message.py` - Message model
+  - `/api/database/` - Database configuration
+  - `/api/utils/` - Utility functions
+    - `auth.py` - JWT token verification
+    - `tools.py` - Agent tool definitions
+    - `stream.py` - Streaming protocol implementation
+- `pyproject.toml` - Python dependencies (strands-agents, oic, cachetools, etc.)
 
 ## Architecture
 
@@ -78,19 +103,36 @@ ChatInterface Component
   └── Input Area (latest message only sent to backend)
 ```
 
-### Backend Architecture
+### Backend Architecture (MVC Pattern)
 
 ```
-HTTP Request
-  ↓ (body: { message: {...}, id: "uuid" })
-handle_chat_data
-  ├── Get or Create Conversation
-  ├── Save User Message to DB
-  ├── Create Strands Agent with FileSessionManager
-  └── Stream Response
-    ├── Buffer Message Parts
-    ├── Stream to Client
-    └── onFinish → Save AI Response to DB
+HTTP Request → /api/*
+  ↓
+Authentication Middleware
+  ├── Verify JWT Token
+  ├── Fetch User Info from OIDC (with cache)
+  ├── Get/Create User in Database
+  └── Attach user to request.state.db_user
+  ↓
+Route Layer (Controller)
+  ├── /api/login → auth.router
+  ├── /api/conversations → conversations.router
+  └── /api/agent/chat → agent.router
+  ↓
+Service Layer (Business Logic)
+  ├── oidc_service: OIDC operations (cached)
+  ├── user_service: User management
+  ├── conversation_service: Conversation CRUD
+  └── agent_service: Agent operations
+    ├── Get/Create Conversation
+    ├── Save User Message
+    ├── Create Agent with FileSessionManager
+    └── Save AI Response
+  ↓
+Database Layer (PostgreSQL)
+  ├── users (OIDC integration)
+  ├── conversations (per-user)
+  └── messages (conversation history)
 ```
 
 ### Data Flow
@@ -113,42 +155,144 @@ handle_chat_data
 
 ## API Endpoints
 
-- `POST /api/chat` - Send message and get streaming response
+### Authentication
+- `POST /api/login` - Login endpoint (requires JWT token from OIDC)
+  - Headers: `Authorization: Bearer <jwt_token>`
+  - Returns: User info with UUID, email, name
+
+### Conversations
+- `GET /api/conversations` - Get all conversations for current user
+  - Headers: `Authorization: Bearer <jwt_token>`
+  - Returns: Array of `{ uuid, title, created_at, updated_at }`
+
+- `GET /api/conversations/{uuid}/messages` - Get all messages in a conversation
+  - Headers: `Authorization: Bearer <jwt_token>`
+  - Returns: Array of `{ id, role, content, parts }`
+
+- `DELETE /api/conversations/{uuid}` - Delete a conversation
+  - Headers: `Authorization: Bearer <jwt_token>`
+  - Returns: `{ success: true }`
+
+### Agent Chat
+- `POST /api/agent/chat` - Send message and get streaming response
+  - Headers: `Authorization: Bearer <jwt_token>`
   - Request body: `{ message: ClientMessage, id: string }`
-  - Returns: Server-Sent Events stream
-  
-- `GET /api/conversations` - Get all conversations
-  - Returns: Array of conversations with UUID, title, timestamps
-  
-- `GET /api/conversations/{uuid}/messages` - Get messages for a conversation
-  - Returns: Array of messages with role, content, parts
+  - Returns: Server-Sent Events stream with message chunks
+
+All endpoints require JWT authentication token in Authorization header.
 
 ## How to Customize
 
-1. **Add New Tools**: Define new tools in `/api/utils/tools.py` using the Strands SDK
-   ```python
-   from strands import tool
-   
-   @tool
-   def your_tool(param: str) -> str:
-       """Tool description"""
-       return "result"
-   ```
+### 1. Add New Tools
+Define new tools in `/api/utils/tools.py` using the Strands SDK:
+```python
+from strands import tool
 
-2. **Modify Agent Configuration**: Update `/api/index.py`
-   - Change model ID
-   - Add system prompts
-   - Adjust temperature and other parameters
-   - Modify tools list
+@tool
+def your_tool(param: str) -> str:
+    """Tool description"""
+    return "result"
+```
 
-3. **Update Frontend**: Customize chat interface in `/components/custom/chat-interface.tsx`
-   - Modify sidebar styling
-   - Change conversation list behavior
-   - Update message rendering
+Then add the tool to the agent configuration in `/api/config/default_agent.json`.
 
-4. **Add Database Features**: Extend models in `/api/models/`
-   - Add new fields to Conversation or Message
-   - Create new models for additional features
+### 2. Modify Agent Configuration
+Update `/api/config/default_agent.json` or create a new config:
+- Change model ID
+- Add system prompts
+- Adjust temperature and other parameters
+- Modify tools list
+- Configure the Strands Agent with your preferences
+
+### 3. Add Custom Routes
+Create new route files in `/api/routes/`:
+```python
+# /api/routes/custom.py
+from fastapi import APIRouter, Request
+
+router = APIRouter()
+
+@router.get("/custom")
+async def custom_endpoint(request: Request):
+    user = request.state.db_user
+    # Your logic here
+    return {"result": "..."}
+```
+
+Then register in `/api/index.py`:
+```python
+from .routes import custom
+app.include_router(custom.router, prefix="/api/custom", tags=["custom"])
+```
+
+### 4. Add Business Logic Services
+Create new service files in `/api/services/`:
+```python
+# /api/services/custom_service.py
+from ..database.session import get_session
+
+def custom_operation(user_uuid: UUID):
+    session = get_session()
+    try:
+        # Your business logic
+        pass
+    finally:
+        session.close()
+```
+
+Import and use in routes:
+```python
+from ..services.custom_service import custom_operation
+
+@router.post("/custom")
+async def handler(request: Request):
+    user = request.state.db_user
+    result = custom_operation(user.uuid)
+    return result
+```
+
+### 5. Customize Frontend Chat Interface
+Update `/components/custom/chat-interface.tsx`:
+- Modify sidebar styling and layout
+- Change conversation list behavior and filtering
+- Update message rendering and styling
+- Add custom message types or components
+- Customize theme and colors
+
+### 6. Add Database Models
+Extend or create new models in `/api/models/`:
+```python
+from sqlmodel import SQLModel, Field
+from uuid import UUID
+
+class CustomModel(SQLModel, table=True):
+    id: UUID = Field(default_factory=UUID, primary_key=True)
+    user_id: UUID = Field(foreign_key="user.uuid")
+    # Your fields
+```
+
+Then use in services and routes with proper authentication checks.
+
+### 7. Add Authentication Guards
+Leverage the existing middleware protection:
+- All `/api/*` endpoints automatically protected by JWT authentication
+- User info available in `request.state.db_user`
+- Implement row-level security in services for multi-user isolation
+
+Example:
+```python
+@router.get("/user-data")
+async def get_user_data(request: Request):
+    user = request.state.db_user  # Already authenticated
+    # Query data scoped to this user only
+    return user_specific_data
+```
+
+### 8. Extend OIDC Integration
+Customize OIDC configuration in environment variables:
+- `OIDC_ISSUER` - Your OIDC provider issuer URL
+- `OIDC_CLIENT_ID` - Application client ID
+- Modify `/api/services/oidc_service.py` for custom user info fetching
 
 ## Learn More
 

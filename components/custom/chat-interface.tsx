@@ -167,7 +167,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   const { messages, sendMessage, addToolApprovalResponse, setMessages, status } = useChat({
     id: conversationId,
     transport: new DefaultChatTransport({
-      api: '/api/chat',
+      api: '/api/agent/chat',
       headers: async (): Promise<Record<string, string>> => {
         const token = await getAccessToken();
         return token ? {
