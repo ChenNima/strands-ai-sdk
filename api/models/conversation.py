@@ -1,13 +1,15 @@
 """Conversation model definition."""
 
 from typing import Optional, Any, List, TYPE_CHECKING
+from uuid import UUID
 from sqlmodel import SQLModel, Field, Column, Relationship
-from sqlalchemy import JSON
+from sqlalchemy import JSON, ForeignKey
 
 from .base import UUIDMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from .message import Message
+    from .user import User
 
 
 class ConversationBase(SQLModel):
@@ -17,11 +19,6 @@ class ConversationBase(SQLModel):
         default=None,
         max_length=500,
         description="Conversation title"
-    )
-    user_id: Optional[str] = Field(
-        default=None,
-        max_length=255,
-        description="User ID (reserved for future user system)"
     )
     meta: Optional[Any] = Field(
         default=None,
@@ -36,6 +33,20 @@ class Conversation(ConversationBase, UUIDMixin, TimestampMixin, table=True):
     __tablename__ = "conversations"
     
     id: Optional[int] = Field(default=None, primary_key=True)
+    
+    # Foreign key to User.uuid (nullable for migration compatibility)
+    user_id: Optional[UUID] = Field(
+        default=None,
+        foreign_key="users.uuid",
+        index=True,
+        description="User UUID that owns this conversation"
+    )
+    
+    # Relationship with User
+    user: Optional["User"] = Relationship(
+        back_populates="conversations",
+        sa_relationship_kwargs={"foreign_keys": "[Conversation.user_id]"}
+    )
     
     # Reverse relationship with cascade delete
     messages: List["Message"] = Relationship(

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from 'oidc-client-ts';
 import { getUserManager, getUser, login, logout } from '@/lib/auth';
+import { apiClient } from '@/lib/api-client';
 
 interface AuthContextType {
   user: User | null;
@@ -23,7 +24,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initAuth = async () => {
       try {
         const currentUser = await getUser();
-        setUser(currentUser);
+        if (currentUser && !currentUser.expired) {
+          setUser(currentUser);
+          // Call backend login endpoint to create/update user record
+          try {
+            await apiClient.post('/api/login');
+          } catch (error) {
+            console.error('Failed to sync user with backend:', error);
+          }
+        }
       } catch (error) {
         console.error('Failed to get user:', error);
       } finally {
@@ -36,8 +45,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for user loaded/unloaded events
     const userManager = getUserManager();
     
-    const handleUserLoaded = (loadedUser: User) => {
+    const handleUserLoaded = async (loadedUser: User) => {
       setUser(loadedUser);
+      // Call backend login endpoint to create/update user record
+      try {
+        await apiClient.post('/api/login');
+      } catch (error) {
+        console.error('Failed to sync user with backend:', error);
+      }
     };
 
     const handleUserUnloaded = () => {

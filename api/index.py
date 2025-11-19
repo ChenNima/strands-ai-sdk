@@ -1,5 +1,6 @@
 from typing import List, Optional, Dict, Any
-from uuid import UUID
+from uuid import UUID, uuid4
+from datetime import datetime
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query, Request as FastAPIRequest, Depends, HTTPException
@@ -11,10 +12,17 @@ from .utils.prompt import ClientMessage
 from .utils.stream import patch_response_with_headers, stream_strands_agent
 from .utils.auth import get_current_user, verify_token
 from .database.session import get_session
-from .models import Conversation, Message
+from .models import Conversation, Message, User
 import os
+import logging
+from oic.oic import Client
+from oic.utils.authn.client import CLIENT_AUTHN_METHOD
+from oic.oic.message import Message as OICMessage, SINGLE_REQUIRED_STRING, SINGLE_OPTIONAL_STRING
+from cachetools import TTLCache
 from vercel import oidc
 from vercel.headers import set_headers
+
+logger = logging.getLogger(__name__)
 
 
 load_dotenv(".env.local")
@@ -32,7 +40,7 @@ async def _vercel_set_headers(request: FastAPIRequest, call_next):
 async def authenticate_requests(request: FastAPIRequest, call_next):
     """
     Global authentication middleware for all API routes.
-    Verifies JWT token for all /api/* endpoints.
+    Verifies JWT token for all /api/* endpoints and loads user from database.
     """
     # Skip authentication for health check and public endpoints
     public_paths = ["/health", "/docs", "/openapi.json", "/redoc"]
@@ -73,6 +81,15 @@ async def authenticate_requests(request: FastAPIRequest, call_next):
             user_claims = verify_token(token, issuer, audience)
             # Store user claims in request state for use in route handlers
             request.state.user = user_claims
+            
+            # Get or create user from database and store in request state
+            session = get_session()
+            try:
+                db_user = get_or_create_user(session, user_claims, token)
+                request.state.db_user = db_user
+            finally:
+                session.close()
+                
         except HTTPException as e:
             return JSONResponse(
                 status_code=e.status_code,
@@ -94,13 +111,166 @@ class Request(BaseModel):
     trigger: Optional[str] = None
 
 
+# Define UserInfo schema for OIDC
+class UserInfoSchema(OICMessage):
+    c_param = {
+        "sub": SINGLE_REQUIRED_STRING,
+        "name": SINGLE_OPTIONAL_STRING,
+        "email": SINGLE_OPTIONAL_STRING,
+        "preferred_username": SINGLE_OPTIONAL_STRING,
+    }
+
+
+# Global OIDC client and cache
+_oidc_client = None
+_provider_configured = False
+_user_info_cache = TTLCache(maxsize=2000, ttl=3600)  # 1 hour TTL
+
+
+def get_oidc_client() -> Client:
+    """Get or create OIDC client (singleton pattern)."""
+    global _oidc_client
+    if _oidc_client is None:
+        try:
+            _oidc_client = Client(client_authn_method=CLIENT_AUTHN_METHOD)
+            logger.info("OIDC client initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize OIDC client: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"OIDC client initialization failed: {str(e)}"
+            )
+    return _oidc_client
+
+
+def ensure_provider_configured():
+    """Ensure provider configuration is loaded (lazy loading)."""
+    global _provider_configured
+    if not _provider_configured:
+        issuer = os.getenv("OIDC_ISSUER")
+        if not issuer:
+            raise HTTPException(status_code=500, detail="OIDC_ISSUER not configured")
+        
+        try:
+            client = get_oidc_client()
+            logger.info(f"Loading provider configuration from: {issuer}")
+            # Get Provider's configuration, including userinfo_endpoint
+            client.provider_config(issuer)
+            _provider_configured = True
+            logger.info("Provider configuration loaded successfully")
+        except Exception as e:
+            logger.error(f"Failed to load provider configuration: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Provider configuration failed: {str(e)}"
+            )
+
+
+def fetch_userinfo_from_oidc(access_token: str) -> Dict[str, Any]:
+    """Fetch user info from OIDC provider's userinfo endpoint using oic library."""
+    try:
+        # Check cache first
+        if access_token in _user_info_cache:
+            logger.debug("User info retrieved from cache")
+            return _user_info_cache[access_token]
+        
+        # Ensure provider is configured
+        ensure_provider_configured()
+        
+        client = get_oidc_client()
+        
+        # Use oic library to fetch user info
+        userinfo_response = client.do_user_info_request(
+            method="GET",
+            token=access_token,
+            user_info_schema=UserInfoSchema
+        )
+        
+        if userinfo_response.get("error"):
+            raise HTTPException(
+                status_code=401,
+                detail=f"OIDC error: {userinfo_response.get('error')} - {userinfo_response.get('error_description')}"
+            )
+        
+        # Store the result in cache
+        user_info = userinfo_response.to_dict()
+        _user_info_cache[access_token] = user_info
+        logger.debug("User info stored in cache")
+        
+        return user_info
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"OIDC authentication failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch user info from OIDC provider: {str(e)}"
+        )
+
+
+def get_or_create_user(session, user_claims: Dict[str, Any], access_token: str = None) -> User:
+    """Get or create user from OIDC claims."""
+    external_user_id = user_claims.get("sub")
+    if not external_user_id:
+        raise HTTPException(status_code=400, detail="Missing 'sub' claim in token")
+    
+    # Try to find existing user
+    stmt = select(User).where(User.external_user_id == external_user_id)
+    user = session.exec(stmt).first()
+    
+    if not user:
+        # Fetch complete user info from OIDC provider using oic library
+        if not access_token:
+            raise HTTPException(status_code=400, detail="Access token required to create user")
+        
+        userinfo = fetch_userinfo_from_oidc(access_token)
+        
+        # Create new user with info from OIDC provider
+        user = User(
+            uuid=uuid4(),
+            external_user_id=external_user_id,
+            email=userinfo.get("email"),
+            name=userinfo.get("name") or userinfo.get("preferred_username"),
+            created_at=datetime.utcnow()
+        )
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+    
+    return user
+
+
+@app.post("/api/login")
+async def login(request: FastAPIRequest):
+    """
+    Login endpoint - creates or updates user record.
+    Called after successful OIDC authentication.
+    """
+    # User is already loaded in middleware
+    user = request.state.db_user
+    return {
+        "success": True,
+        "user": {
+            "uuid": str(user.uuid),
+            "external_user_id": user.external_user_id,
+            "email": user.email,
+            "name": user.name
+        }
+    }
+
+
 @app.get("/api/conversations")
 async def get_conversations(request: FastAPIRequest):
     """Get all conversations for the current user."""
-    # User info is available in request.state.user (set by middleware)
+    # User is already loaded in middleware
+    user = request.state.db_user
     session = get_session()
     try:
-        stmt = select(Conversation).order_by(Conversation.updated_at.desc())
+        # Filter conversations by user_id
+        stmt = select(Conversation).where(
+            Conversation.user_id == user.uuid
+        ).order_by(Conversation.updated_at.desc())
         conversations = session.exec(stmt).all()
         return [
             {
@@ -118,9 +288,20 @@ async def get_conversations(request: FastAPIRequest):
 @app.get("/api/conversations/{conversation_uuid}/messages")
 async def get_conversation_messages(conversation_uuid: str, request: FastAPIRequest):
     """Get all messages for a specific conversation."""
-    # User info is available in request.state.user (set by middleware)
+    # User is already loaded in middleware
+    user = request.state.db_user
     session = get_session()
     try:
+        # Verify conversation ownership
+        conv_stmt = select(Conversation).where(
+            Conversation.uuid == UUID(conversation_uuid),
+            Conversation.user_id == user.uuid
+        )
+        conversation = session.exec(conv_stmt).first()
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        # Get messages for this conversation
         stmt = select(Message).where(
             Message.conversation_uuid == UUID(conversation_uuid)
         ).order_by(Message.created_at.asc())
@@ -190,26 +371,32 @@ async def get_conversation_messages(conversation_uuid: str, request: FastAPIRequ
 @app.delete("/api/conversations/{conversation_uuid}")
 async def delete_conversation(conversation_uuid: str, request: FastAPIRequest):
     """Delete a conversation and all its messages."""
-    # User info is available in request.state.user (set by middleware)
+    # User is already loaded in middleware
+    user = request.state.db_user
     session = get_session()
     try:
-        # First delete all messages associated with this conversation
-        stmt = select(Message).where(
+        # Verify conversation ownership before deleting
+        stmt = select(Conversation).where(
+            Conversation.uuid == UUID(conversation_uuid),
+            Conversation.user_id == user.uuid
+        )
+        conversation = session.exec(stmt).first()
+        
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        # Delete all messages associated with this conversation
+        msg_stmt = select(Message).where(
             Message.conversation_uuid == UUID(conversation_uuid)
         )
-        messages = session.exec(stmt).all()
+        messages = session.exec(msg_stmt).all()
         for msg in messages:
             session.delete(msg)
         
-        # Then delete the conversation itself
-        stmt = select(Conversation).where(Conversation.uuid == UUID(conversation_uuid))
-        conversation = session.exec(stmt).first()
-        if conversation:
-            session.delete(conversation)
-            session.commit()
-            return {"success": True, "message": "Conversation deleted successfully"}
-        else:
-            return {"success": False, "message": "Conversation not found"}
+        # Delete the conversation itself
+        session.delete(conversation)
+        session.commit()
+        return {"success": True, "message": "Conversation deleted successfully"}
     finally:
         session.close()
 
@@ -222,8 +409,10 @@ async def handle_chat_data(
 ):
     """
     Chat endpoint with OIDC authentication.
-    User info is available in fastapi_request.state.user (set by middleware)
+    User is already loaded in middleware as fastapi_request.state.db_user
     """
+    # User is already loaded in middleware
+    user = fastapi_request.state.db_user
     conversation_id = request.id
     
     # Handle both optimized format (single message) and backward compatibility (full history)
@@ -239,13 +428,19 @@ async def handle_chat_data(
     try:
         conversation = None
         if conversation_id:
-            # Try to find existing conversation by UUID
-            stmt = select(Conversation).where(Conversation.uuid == UUID(conversation_id))
+            # Try to find existing conversation by UUID and verify ownership
+            stmt = select(Conversation).where(
+                Conversation.uuid == UUID(conversation_id),
+                Conversation.user_id == user.uuid
+            )
             conversation = session.exec(stmt).first()
         
-        # If no conversation found, create a new one
+        # If no conversation found, create a new one linked to the user
         if not conversation:
-            conversation = Conversation(uuid=UUID(conversation_id) if conversation_id else None)
+            conversation = Conversation(
+                uuid=UUID(conversation_id) if conversation_id else None,
+                user_id=user.uuid
+            )
             session.add(conversation)
             session.commit()
             session.refresh(conversation)
