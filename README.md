@@ -9,6 +9,7 @@ The application uses [Strands Agents](https://github.com/strands-agents/sdk-pyth
 - **Strands Agent Integration**: Use the model-driven Strands Agents SDK for flexible AI agent development
 - **Tool Support**: Built-in support for tool/function calling with streaming responses
 - **Tool Approval**: Human-in-the-loop workflow with interactive approval for sensitive tool operations
+- **MCP Integration**: Model Context Protocol support with Zhipu web search example (see `api/services/agent_service.py`)
 - **Amazon Bedrock**: Powered by Amazon Bedrock models (Claude Haiku by default)
 - **Real-time Streaming**: Full streaming support with Vercel AI SDK protocol
 - **Next.js + FastAPI**: Modern full-stack application with frontend and backend
@@ -21,27 +22,36 @@ The application uses [Strands Agents](https://github.com/strands-agents/sdk-pyth
 - **Strands FileSessionManager**: Automatic session state management and recovery
 - **Network Optimization**: Optimized message sending - only sends latest message to reduce bandwidth
 - **Conversation History**: Left sidebar with conversation list and quick navigation
+
+## Getting Started
+
 To run this scaffold locally:
 
-1. Configure AWS credentials for Amazon Bedrock access:
+1. Configure environment variables:
+   - Copy `.env.example` to `.env`
+   - Fill in the required parameters:
+     - `DATABASE_URL` for PostgreSQL connection
+     - `ZHIPU_API_KEY` (optional) for Zhipu web search
+     - Any required Bedrock-specific configurations
+
+2. Configure AWS credentials for Amazon Bedrock access:
    - Set up AWS credentials (e.g., via `~/.aws/credentials` or environment variables)
    - Ensure you have access to Amazon Bedrock models
 
-2. Set up PostgreSQL database:
-   - Install PostgreSQL
-   - Create a database for the application
-   - Configure `DATABASE_URL` environment variable
+3. (Optional) Configure Zhipu MCP integration:
+   - Get your API key from https://www.bigmodel.cn/usercenter/proj-mgmt/apikeys
+   - Set `ZHIPU_API_KEY` in `.env` file to enable Zhipu web search tool
 
-3. Set up the environment:
+4. Install dependencies:
    - `pnpm install` to install Node dependencies
    - Install [uv](https://docs.astral.sh/uv/) for Python package management: `curl -LsSf https://astral.sh/uv/install.sh | sh`
    - `uv sync` to create virtual environment and install Python dependencies from `pyproject.toml`
 
-4. Configure environment variables in `.env.local`:
-   - Set `DATABASE_URL` for PostgreSQL connection
-   - Add any required Bedrock-specific configurations
+5. Initialize the database:
+   - `pnpm db:up` to start PostgreSQL with Docker Compose
+   - `alembic upgrade head` to run database migrations
 
-5. Run the application:
+6. Run the application:
    - `pnpm dev` to launch the development server (frontend on port 3000, backend on port 8000)
 
 ## Project Structure
