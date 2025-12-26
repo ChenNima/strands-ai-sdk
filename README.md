@@ -9,6 +9,9 @@ The application uses [Strands Agents](https://github.com/strands-agents/sdk-pyth
 - **Strands Agent Integration**: Use the model-driven Strands Agents SDK for flexible AI agent development
 - **Tool Support**: Built-in support for tool/function calling with streaming responses
 - **Tool Approval**: Human-in-the-loop workflow with interactive approval for sensitive tool operations
+
+  ![Tool Approval Demo](docs/gif/tool-use-approval.gif)
+
 - **MCP Integration**: Model Context Protocol support with Zhipu web search example (see `api/services/agent_service.py`)
 - **Amazon Bedrock**: Powered by Amazon Bedrock models (Claude Haiku by default)
 - **Real-time Streaming**: Full streaming support with Vercel AI SDK protocol
