@@ -79,7 +79,8 @@ def get_conversation_messages(conversation_uuid: UUID, user_uuid: UUID) -> List[
                         tool_call_id = part["toolCallId"]
                         if tool_call_id in existing["tool_call_map"]:
                             idx = existing["tool_call_map"][tool_call_id]
-                            existing["parts"][idx] = part
+                            # Merge the new part's attributes into the existing part
+                            existing["parts"][idx].update(part)
                         else:
                             existing["parts"].append(part)
                             existing["tool_call_map"][tool_call_id] = len(existing["parts"]) - 1

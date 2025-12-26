@@ -257,6 +257,41 @@ async def stream_strands_agent(
                                     else:
                                         # Tool execution error
                                         error_text = tool_result.get('content', [{}])[0].get('text', 'Tool execution failed')
+                                        
+                                        # Update tool_calls_state
+                                        if tool_call_id in tool_calls_state:
+                                            tool_calls_state[tool_call_id]["state"] = "output-error"
+                                            tool_calls_state[tool_call_id]["error"] = error_text
+                                        else:
+                                            # Create new entry if it doesn't exist
+                                            tool_calls_state[tool_call_id] = {
+                                                "state": "output-error",
+                                                "error": error_text
+                                            }
+                                        
+                                        # Find or create part in message_parts
+                                        existing_part = None
+                                        for part in message_parts:
+                                            if part.get("toolCallId") == tool_call_id:
+                                                existing_part = part
+                                                break
+                                        
+                                        if existing_part:
+                                            # Update existing part
+                                            existing_part["state"] = "output-error"
+                                            existing_part["error"] = error_text
+                                        else:
+                                            # Create new part if not found
+                                            new_part = {
+                                                "toolCallId": tool_call_id,
+                                                "state": "output-error",
+                                                "error": error_text
+                                            }
+                                            # Try to get input from tool_calls_state if available
+                                            if "input" in tool_calls_state[tool_call_id]:
+                                                new_part["input"] = tool_calls_state[tool_call_id]["input"]
+                                            message_parts.append(new_part)
+                                        
                                         yield format_sse({
                                             "type": "tool-output-error",
                                             "toolCallId": tool_call_id,
