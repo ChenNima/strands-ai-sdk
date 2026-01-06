@@ -4,7 +4,7 @@
     {
       "label": "install-dependencies",
       "type": "shell",
-      "command": "uv pip install -e .",
+      "command": "cd packages/service && uv pip install -e .",
       "problemMatcher": []
     }
   ]

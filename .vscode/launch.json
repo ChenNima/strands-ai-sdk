@@ -12,7 +12,7 @@
       ],
       "jinja": true,
       "justMyCode": false,
-      "cwd": "${workspaceFolder}",
+      "cwd": "${workspaceFolder}/packages/service",
       "python": "${workspaceFolder}/.venv/bin/python",
       "preLaunchTask": "install-dependencies",
       "envFile": "${workspaceFolder}/.env"

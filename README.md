@@ -1,319 +1,221 @@
-# Strands Agent AI SDK Scaffold
+# MCS Strands Agent AI SDK
 
-This is a scaffold application that demonstrates the integration of [Strands Agent](https://github.com/strands-agents/sdk-python) with the [Vercel AI SDK](https://sdk.vercel.ai/). It showcases how to stream agent responses from a Python endpoint ([FastAPI](https://fastapi.tiangolo.com)) using the [Data Stream Protocol](https://sdk.vercel.ai/docs/ai-sdk-ui/stream-protocol#data-stream-protocol) and display them using the [useChat](https://sdk.vercel.ai/docs/ai-sdk-ui/chatbot#chatbot) hook in your Next.js application.
-
-The application uses [Strands Agents](https://github.com/strands-agents/sdk-python) for building intelligent AI agents with tool support, powered by Amazon Bedrock models.
-
-## Features
-
-- **Strands Agent Integration**: Use the model-driven Strands Agents SDK for flexible AI agent development
-- **Tool Support**: Built-in support for tool/function calling with streaming responses
-- **Tool Approval**: Human-in-the-loop workflow with interactive approval for sensitive tool operations
-
-  ![Tool Approval Demo](docs/gif/tool-use-approval.gif)
-
-- **MCP Integration**: Model Context Protocol support with Zhipu web search example (see `api/services/agent_service.py`)
-- **Amazon Bedrock**: Powered by Amazon Bedrock models (Claude Haiku by default)
-- **Real-time Streaming**: Full streaming support with Vercel AI SDK protocol
-- **Next.js + FastAPI**: Modern full-stack application with frontend and backend
-- **OIDC Authentication**: Full OIDC integration with JWT token verification and user management
-- **Multi-User Support**: Complete user isolation with per-user conversation management
-- **MVC Architecture**: Clean separation of concerns with middleware, services, and routes layers
-- **Conversation Management**: UUID-based conversation tracking with persistent storage
-- **PostgreSQL Integration**: Full message history persistence and retrieval with user data
-- **Message Buffering**: Complete message buffering and database persistence via onFinish callbacks
-- **Strands FileSessionManager**: Automatic session state management and recovery
-- **Network Optimization**: Optimized message sending - only sends latest message to reduce bandwidth
-- **Conversation History**: Left sidebar with conversation list and quick navigation
-
-## Getting Started
-
-To run this scaffold locally:
-
-1. Configure environment variables:
-   - Copy `.env.example` to `.env`
-   - Fill in the required parameters:
-     - `DATABASE_URL` for PostgreSQL connection
-     - `ZHIPU_API_KEY` (optional) for Zhipu web search
-     - Any required Bedrock-specific configurations
-
-2. Configure AWS credentials for Amazon Bedrock access:
-   - Set up AWS credentials (e.g., via `~/.aws/credentials` or environment variables)
-   - Ensure you have access to Amazon Bedrock models
-
-3. (Optional) Configure Zhipu MCP integration:
-   - Get your API key from https://www.bigmodel.cn/usercenter/proj-mgmt/apikeys
-   - Set `ZHIPU_API_KEY` in `.env` file to enable Zhipu web search tool
-
-4. Install dependencies:
-   - `pnpm install` to install Node dependencies
-   - Install [uv](https://docs.astral.sh/uv/) for Python package management: `curl -LsSf https://astral.sh/uv/install.sh | sh`
-   - `uv sync` to create virtual environment and install Python dependencies from `pyproject.toml`
-
-5. Initialize the database:
-   - `pnpm db:up` to start PostgreSQL with Docker Compose
-   - `alembic upgrade head` to run database migrations
-
-6. Run the application:
-   - `pnpm dev` to launch the development server (frontend on port 3000, backend on port 8000)
+This is a monorepo containing the MCS Strands Agent AI SDK and its AWS CDK infrastructure.
 
 ## Project Structure
 
-### Frontend
-- `/app` - Next.js application pages
-  - `/app/page.tsx` - Home page (redirects to /chat)
-  - `/app/chat/[uuid]/page.tsx` - Chat page with conversation UUID
-  - `/app/login/page.tsx` - OIDC login page
-  - `/app/callback/page.tsx` - OIDC callback handler
-- `/components` - React components
-  - `/components/custom/chat-interface.tsx` - Main chat interface with sidebar
-  - `/components/ui/` - shadcn/ui components
-- `/contexts` - React contexts
-  - `/contexts/auth-context.tsx` - Authentication context with OIDC
-- `/lib` - Utility libraries
-  - `/lib/auth.ts` - OIDC authentication utilities
-  - `/lib/api-client.ts` - API client with automatic token injection
-
-### Backend (MVC Architecture)
-- `/api` - FastAPI backend
-  - `/api/index.py` - Main application entry point (30 lines)
-  - `/api/middleware/` - Middleware layer
-    - `auth.py` - Authentication middleware (JWT verification)
-  - `/api/services/` - Business logic layer
-    - `oidc_service.py` - OIDC user info with caching
-    - `user_service.py` - User management
-    - `conversation_service.py` - Conversation CRUD operations
-    - `agent_service.py` - Agent creation and message handling
-  - `/api/routes/` - API routes (controllers)
-    - `auth.py` - Authentication endpoints
-    - `conversations.py` - Conversation management endpoints
-    - `agent.py` - AI agent chat endpoint
-  - `/api/models/` - SQLModel database models
-    - `user.py` - User model with OIDC integration
-    - `conversation.py` - Conversation model
-    - `message.py` - Message model
-  - `/api/database/` - Database configuration
-  - `/api/utils/` - Utility functions
-    - `auth.py` - JWT token verification
-    - `tools.py` - Agent tool definitions
-    - `stream.py` - Streaming protocol implementation
-- `pyproject.toml` - Python dependencies (strands-agents, oic, cachetools, etc.)
-
-## Architecture
-
-### Frontend Routing
-
 ```
-Home (/)
-  ↓ (auto redirect)
-Chat (/chat)
-  ↓ (generate UUID)
-Chat with UUID (/chat/[uuid])
-  ↓
-ChatInterface Component
-  ├── Conversation Sidebar (conversation list)
-  ├── Message Display Area (allMessages from history + current)
-  └── Input Area (latest message only sent to backend)
+strands-ai-sdk/
+├── packages/
+│   ├── service/          # @mcs/service - Full-stack application
+│   │   ├── api/          # FastAPI backend
+│   │   ├── app/          # Next.js frontend
+│   │   ├── components/   # React components
+│   │   ├── migrations/   # Database migrations
+│   │   └── ...
+│   └── cdk/              # @mcs/cdk - AWS CDK infrastructure
+│       ├── bin/          # CDK app entry point
+│       ├── lib/          # Stacks and constructs
+│       └── ...
+├── pnpm-workspace.yaml   # pnpm workspace configuration
+└── package.json          # Root package.json with workspace scripts
 ```
 
-### Backend Architecture (MVC Pattern)
+## Packages
 
-```
-HTTP Request → /api/*
-  ↓
-Authentication Middleware
-  ├── Verify JWT Token
-  ├── Fetch User Info from OIDC (with cache)
-  ├── Get/Create User in Database
-  └── Attach user to request.state.db_user
-  ↓
-Route Layer (Controller)
-  ├── /api/login → auth.router
-  ├── /api/conversations → conversations.router
-  └── /api/agent/chat → agent.router
-  ↓
-Service Layer (Business Logic)
-  ├── oidc_service: OIDC operations (cached)
-  ├── user_service: User management
-  ├── conversation_service: Conversation CRUD
-  └── agent_service: Agent operations
-    ├── Get/Create Conversation
-    ├── Save User Message
-    ├── Create Agent with FileSessionManager
-    └── Save AI Response
-  ↓
-Database Layer (PostgreSQL)
-  ├── users (OIDC integration)
-  ├── conversations (per-user)
-  └── messages (conversation history)
-```
+### @mcs/service
 
-### Data Flow
+Full-stack application demonstrating the integration of [Strands Agent](https://github.com/strands-agents/sdk-python) with the [Vercel AI SDK](https://sdk.vercel.ai/).
 
-1. **User sends message**
-   - Frontend: `sendMessage({ text: input })`
-   - `DefaultChatTransport.prepareSendMessagesRequest` intercepts
-   - Only latest message is sent: `{ message: {...}, id: "uuid" }`
+**Features:**
+- Strands Agent Integration with Amazon Bedrock
+- Tool Support with streaming responses
+- Tool Approval (human-in-the-loop workflow)
+- MCP Integration
+- OIDC Authentication
+- Multi-User Support
+- Conversation Management
+- PostgreSQL Integration
 
-2. **Backend processes**
-   - Save user message to PostgreSQL
-   - Strands Agent with FileSessionManager processes
-   - Agent automatically recovers full conversation history from FileSessionManager
-   - Streams response back to frontend
+For detailed documentation, see [packages/service/README.md](packages/service/README.md)
 
-3. **Message persistence**
-   - Frontend displays all messages (historical + current)
-   - `onFinish` callback saves complete AI response to PostgreSQL
-   - FileSessionManager maintains internal agent state
+### @mcs/cdk
 
-## API Endpoints
+AWS CDK infrastructure for deploying the MCS service to AWS.
 
-### Authentication
-- `POST /api/login` - Login endpoint (requires JWT token from OIDC)
-  - Headers: `Authorization: Bearer <jwt_token>`
-  - Returns: User info with UUID, email, name
+**Includes:**
+- Network Stack (VPC, Subnets, Security Groups)
+- Database Stack (RDS PostgreSQL)
+- Compute Stack (ECS/Fargate or other compute resources)
 
-### Conversations
-- `GET /api/conversations` - Get all conversations for current user
-  - Headers: `Authorization: Bearer <jwt_token>`
-  - Returns: Array of `{ uuid, title, created_at, updated_at }`
+For detailed documentation, see [packages/cdk/README.md](packages/cdk/README.md)
 
-- `GET /api/conversations/{uuid}/messages` - Get all messages in a conversation
-  - Headers: `Authorization: Bearer <jwt_token>`
-  - Returns: Array of `{ id, role, content, parts }`
+## Prerequisites
 
-- `DELETE /api/conversations/{uuid}` - Delete a conversation
-  - Headers: `Authorization: Bearer <jwt_token>`
-  - Returns: `{ success: true }`
+- **Node.js** 18+
+- **pnpm** 8+ (recommended package manager)
+- **Python** 3.10+
+- **uv** (Python package manager): `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- **Docker** (for local database)
+- **AWS CLI** (for CDK deployment)
 
-### Agent Chat
-- `POST /api/agent/chat` - Send message and get streaming response
-  - Headers: `Authorization: Bearer <jwt_token>`
-  - Request body: `{ message: ClientMessage, id: string }`
-  - Returns: Server-Sent Events stream with message chunks
+## Getting Started
 
-All endpoints require JWT authentication token in Authorization header.
+### 1. Install Dependencies
 
-## How to Customize
+```bash
+# Create Python virtual environment (at root directory)
+uv venv --python 3.12
 
-### 1. Add New Tools
-Define new tools in `/api/utils/tools.py` using the Strands SDK:
-```python
-from strands import tool
-
-@tool
-def your_tool(param: str) -> str:
-    """Tool description"""
-    return "result"
+# Install Node.js dependencies
+pnpm install
 ```
 
-Then add the tool to the agent configuration in `/api/config/default_agent.json`.
+### 2. Configure Environment
 
-### 2. Modify Agent Configuration
-Update `/api/config/default_agent.json` or create a new config:
-- Change model ID
-- Add system prompts
-- Adjust temperature and other parameters
-- Modify tools list
-- Configure the Strands Agent with your preferences
+```bash
+# Copy environment template from root directory
+cp .env.example .env
 
-### 3. Add Custom Routes
-Create new route files in `/api/routes/`:
-```python
-# /api/routes/custom.py
-from fastapi import APIRouter, Request
-
-router = APIRouter()
-
-@router.get("/custom")
-async def custom_endpoint(request: Request):
-    user = request.state.db_user
-    # Your logic here
-    return {"result": "..."}
+# Edit .env with your configuration
 ```
 
-Then register in `/api/index.py`:
-```python
-from .routes import custom
-app.include_router(custom.router, prefix="/api/custom", tags=["custom"])
+**Note**: The `.env` file is located at the root directory and is shared across all packages. A symlink exists in `packages/service/.env` pointing to the root `.env` file.
+
+**OIDC Configuration**: When setting up your OIDC provider, configure the redirect URL:
+- **Local development**: `http://localhost:3000/callback`
+- **Production**: `https://your-domain.com/callback`
+
+### 3. Set Up Database
+
+```bash
+# Start PostgreSQL with Docker
+pnpm db:up
+
+# Run migrations
+cd packages/service
+alembic upgrade head
+cd ../..
 ```
 
-### 4. Add Business Logic Services
-Create new service files in `/api/services/`:
-```python
-# /api/services/custom_service.py
-from ..database.session import get_session
+### 4. Run Development Server
 
-def custom_operation(user_uuid: UUID):
-    session = get_session()
-    try:
-        # Your business logic
-        pass
-    finally:
-        session.close()
+```bash
+# Start the full-stack application
+pnpm dev
 ```
 
-Import and use in routes:
-```python
-from ..services.custom_service import custom_operation
+The application will be available at:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- API Docs: http://localhost:8000/docs
 
-@router.post("/custom")
-async def handler(request: Request):
-    user = request.state.db_user
-    result = custom_operation(user.uuid)
-    return result
+## Available Scripts
+
+### Root Level Scripts
+
+```bash
+# Development
+pnpm dev              # Start service development server
+pnpm build            # Build service for production
+pnpm start            # Start service production server
+
+# Database
+pnpm db:up            # Start PostgreSQL container
+pnpm db:down          # Stop PostgreSQL container
+pnpm db:logs          # View PostgreSQL logs
+pnpm db:reset         # Reset PostgreSQL container
+
+# CDK
+pnpm build:cdk        # Build CDK project
+pnpm cdk:synth        # Synthesize CDK stacks
+pnpm cdk:deploy       # Deploy CDK stacks
+pnpm cdk:diff         # Show CDK stack differences
+pnpm cdk:destroy      # Destroy CDK stacks
+
+# Code Quality
+pnpm lint             # Lint service code
 ```
 
-### 5. Customize Frontend Chat Interface
-Update `/components/custom/chat-interface.tsx`:
-- Modify sidebar styling and layout
-- Change conversation list behavior and filtering
-- Update message rendering and styling
-- Add custom message types or components
-- Customize theme and colors
+### Working with Individual Packages
 
-### 6. Add Database Models
-Extend or create new models in `/api/models/`:
-```python
-from sqlmodel import SQLModel, Field
-from uuid import UUID
+```bash
+# Run commands in specific packages
+pnpm --filter @mcs/service <command>
+pnpm --filter @mcs/cdk <command>
 
-class CustomModel(SQLModel, table=True):
-    id: UUID = Field(default_factory=UUID, primary_key=True)
-    user_id: UUID = Field(foreign_key="user.uuid")
-    # Your fields
+# Examples
+pnpm --filter @mcs/service dev
+pnpm --filter @mcs/cdk build
 ```
 
-Then use in services and routes with proper authentication checks.
+## Monorepo Management
 
-### 7. Add Authentication Guards
-Leverage the existing middleware protection:
-- All `/api/*` endpoints automatically protected by JWT authentication
-- User info available in `request.state.db_user`
-- Implement row-level security in services for multi-user isolation
+This project uses pnpm workspaces for monorepo management:
 
-Example:
-```python
-@router.get("/user-data")
-async def get_user_data(request: Request):
-    user = request.state.db_user  # Already authenticated
-    # Query data scoped to this user only
-    return user_specific_data
+- **Workspace Configuration**: `pnpm-workspace.yaml`
+- **Package Isolation**: Each package has its own `node_modules`
+- **Shared Dependencies**: Common dependencies are hoisted to the root
+- **Cross-Package References**: Packages can reference each other using workspace protocol
+
+### Adding New Packages
+
+1. Create a new directory under `packages/`
+2. Initialize with `package.json` (set `"name": "@mcs/package-name"`)
+3. Run `pnpm install` from the root
+
+## Deployment
+
+### AWS CDK Deployment
+
+1. Configure AWS credentials:
+```bash
+aws configure
 ```
 
-### 8. Extend OIDC Integration
-Customize OIDC configuration in environment variables:
-- `OIDC_ISSUER` - Your OIDC provider issuer URL
-- `OIDC_CLIENT_ID` - Application client ID
-- Modify `/api/services/oidc_service.py` for custom user info fetching
+2. Bootstrap CDK (first time only):
+```bash
+cd packages/cdk
+pnpm cdk bootstrap
+```
+
+3. Deploy stacks:
+```bash
+pnpm cdk:deploy
+```
+
+For detailed deployment instructions, see [packages/cdk/README.md](packages/cdk/README.md)
+
+## Project Architecture
+
+### Service Architecture
+
+```
+Frontend (Next.js) → Backend (FastAPI) → Strands Agent → Amazon Bedrock
+                          ↓
+                    PostgreSQL Database
+```
+
+### Deployment Architecture (CDK)
+
+```
+CloudFront/ALB → ECS/Fargate → RDS PostgreSQL
+      ↓              ↓
+   Frontend      Backend + Agent
+```
 
 ## Learn More
 
-- [Strands Agents Documentation](https://github.com/strands-agents/sdk-python)
-- [Vercel AI SDK Documentation](https://sdk.vercel.ai/docs)
-- [Vercel AI SDK - useChat Hook](https://sdk.vercel.ai/docs/ai-sdk-ui/chatbot)
-- [Vercel AI SDK - Custom Transport](https://sdk.vercel.ai/docs/ai-sdk-ui/transport)
-- [Next.js Documentation](https://nextjs.org/docs)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [Amazon Bedrock Documentation](https://aws.amazon.com/bedrock/)
-- [SQLModel Documentation](https://sqlmodel.tiangolo.com/)
+- [Service Documentation](packages/service/README.md)
+- [CDK Documentation](packages/cdk/README.md)
+- [Strands Agents](https://github.com/strands-agents/sdk-python)
+- [Vercel AI SDK](https://sdk.vercel.ai/docs)
+- [AWS CDK](https://docs.aws.amazon.com/cdk/)
+
+## License
+
+[Add your license here]
+
+## Contributing
+
+[Add contribution guidelines here]
