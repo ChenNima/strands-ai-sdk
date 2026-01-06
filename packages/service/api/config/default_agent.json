@@ -1,0 +1,9 @@
+{
+  "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "prompt": "You are a helpful AI assistant.",
+  "tools": [
+    "strands_tools.current_time",
+    "strands_tools.calculator",
+    "api/utils/tools.py"
+  ]
+}
