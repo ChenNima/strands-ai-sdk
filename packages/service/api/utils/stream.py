@@ -139,20 +139,9 @@ async def stream_strands_agent(
                     if 'content' in event['message'] and isinstance(event['message']['content'], list):
                         for content in event['message']['content']:
                             if isinstance(content, dict):
-                                # Text content
-                                if 'text' in content:
-                                    if not text_started:
-                                        yield format_sse({"type": "text-start", "id": text_stream_id})
-                                        text_started = True
-                                    
-                                    yield format_sse({
-                                        "type": "text-delta",
-                                        "id": text_stream_id,
-                                        "delta": content['text']
-                                    })
                                 
                                 # Tool call
-                                elif 'toolUse' in content:
+                                if 'toolUse' in content:
                                     # End text stream before starting tool call if needed
                                     if text_started and not text_finished:
                                         yield format_sse({"type": "text-end", "id": text_stream_id})

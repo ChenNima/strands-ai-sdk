@@ -66,6 +66,8 @@ For detailed documentation, see [packages/cdk/README.md](packages/cdk/README.md)
 ```bash
 # Create Python virtual environment (at root directory)
 uv venv --python 3.12
+source .venv/bin/activate 
+uv pip install -e packages/service
 
 # Install Node.js dependencies
 pnpm install
@@ -93,9 +95,7 @@ cp .env.example .env
 pnpm db:up
 
 # Run migrations
-cd packages/service
-alembic upgrade head
-cd ../..
+pnpm db:migrate:upgrade
 ```
 
 ### 4. Run Development Server

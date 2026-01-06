@@ -13,6 +13,7 @@
     "db:down": "pnpm --filter @mcs/service db:down",
     "db:logs": "pnpm --filter @mcs/service db:logs",
     "db:reset": "pnpm --filter @mcs/service db:reset",
+    "db:migrate:upgrade": "pnpm --filter @mcs/service db:migrate:upgrade",
     "cdk:synth": "pnpm --filter @mcs/cdk synth",
     "cdk:deploy": "pnpm --filter @mcs/cdk deploy",
     "cdk:diff": "pnpm --filter @mcs/cdk diff",
