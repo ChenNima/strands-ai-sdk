@@ -3,10 +3,11 @@ Main FastAPI application entry point.
 """
 from dotenv import load_dotenv
 from fastapi import FastAPI
-from vercel import oidc
-from vercel.headers import set_headers
 from fastapi import Request as FastAPIRequest
+from vercel.headers import set_headers
+
 from .middleware.auth import authenticate_requests
+from .middleware.database import database_session_middleware
 from .routes import auth, conversations, agent
 
 load_dotenv(".env.local")
@@ -21,8 +22,14 @@ async def _vercel_set_headers(request: FastAPIRequest, call_next):
     return await call_next(request)
 
 
-# Authentication middleware
+# Middleware execution order: last registered = first executed
+# So we register auth first (inner), then database (outer)
+
+# Authentication middleware (runs second - needs session context)
 app.middleware("http")(authenticate_requests)
+
+# Database session middleware (runs first - sets up session context)
+app.middleware("http")(database_session_middleware)
 
 
 # Register routers
