@@ -8,15 +8,28 @@ if (process.env.NODE_ENV === 'development') {
   Log.setLevel(Log.DEBUG);
 }
 
+// Get runtime config from window (injected by server component)
+// This allows environment variables to be read at runtime in standalone mode
+function getRuntimeConfig() {
+  if (typeof window !== 'undefined' && window.__RUNTIME_CONFIG__) {
+    return window.__RUNTIME_CONFIG__;
+  }
+  return {
+    OIDC_ISSUER: '',
+    OIDC_CLIENT_ID: '',
+  };
+}
+
 // OIDC configuration - only issuer and client_id are required
 // All other endpoints are auto-discovered from .well-known/openid-configuration
-const issuer = process.env.NEXT_PUBLIC_OIDC_ISSUER || process.env.OIDC_CLIENT_ID || '';
-const clientId = process.env.NEXT_PUBLIC_OIDC_CLIENT_ID || process.env.OIDC_CLIENT_ID || '';
+const config = getRuntimeConfig();
+const issuer = config.OIDC_ISSUER;
+const clientId = config.OIDC_CLIENT_ID;
 
 // Validate required environment variables on client side
 if (typeof window !== 'undefined' && (!issuer || !clientId)) {
   console.error(
-    'Missing required OIDC configuration. Please check NEXT_PUBLIC_OIDC_ISSUER and NEXT_PUBLIC_OIDC_CLIENT_ID environment variables.'
+    'Missing required OIDC configuration. Please check OIDC_ISSUER and OIDC_CLIENT_ID environment variables in runtime config.'
   );
 }
 

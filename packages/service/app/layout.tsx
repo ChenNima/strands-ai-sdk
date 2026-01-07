@@ -8,6 +8,7 @@ import { Navbar } from "@/components/navbar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/contexts/auth-context";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { RuntimeConfig } from "@/components/runtime-config";
 
 export async function generateMetadata() {
   const t = await getTranslations("metadata");
@@ -42,7 +43,9 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} suppressHydrationWarning>
-      <head></head>
+      <head>
+          <RuntimeConfig />
+        </head>
       <body className={cn(GeistSans.className, "antialiased", "flex flex-col h-screen overflow-hidden")}>
         <NextIntlClientProvider messages={messages}>
           <ThemeProvider
