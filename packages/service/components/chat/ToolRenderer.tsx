@@ -28,7 +28,7 @@ function ToolRendererComponent({
   addToolApprovalResponse,
   sendMessage,
 }: ToolRendererProps) {
-  const t = useTranslations('tool');
+  const t = useTranslations();
   const { state, output, approval, input } = part;
   const [isOpen, setIsOpen] = useState(false);
 
@@ -52,7 +52,7 @@ function ToolRendererComponent({
           {state === 'approval-requested' && approval && (
             <div className="space-y-3 p-3">
               <div className="text-sm">
-                <div className="font-medium mb-2">{t('requiresApproval')}</div>
+                <div className="font-medium mb-2">{t('tool.requiresApproval')}</div>
                 <pre className="bg-muted rounded p-2 font-mono text-xs whitespace-pre-wrap overflow-auto">
                   {JSON.stringify(input as object, null, 2)}
                 </pre>
@@ -69,7 +69,7 @@ function ToolRendererComponent({
                     sendMessage();
                   }}
                 >
-                  {t('approve')}
+                  {t('tool.approve')}
                 </Button>
                 <Button
                   size="sm"
@@ -82,7 +82,7 @@ function ToolRendererComponent({
                     sendMessage();
                   }}
                 >
-                  {t('deny')}
+                  {t('tool.deny')}
                 </Button>
               </div>
             </div>
@@ -91,7 +91,7 @@ function ToolRendererComponent({
           {/* Show input if available */}
           {input && state !== 'approval-requested' && (
             <div className="p-3 border-b">
-              <div className="text-sm font-medium mb-2">{t('input')}</div>
+              <div className="text-sm font-medium mb-2">{t('tool.input')}</div>
               <pre className="bg-muted rounded p-2 font-mono text-xs whitespace-pre-wrap overflow-auto">
                 {JSON.stringify(input as object, null, 2)}
               </pre>
@@ -118,8 +118,8 @@ function ToolRendererComponent({
               <Loader size={16} />
               <span className="text-sm text-muted-foreground">
                 {toolName === 'get_current_weather'
-                  ? t('gettingWeather')
-                  : t('executing', { toolName })}
+                  ? t('tool.gettingWeather')
+                  : t('tool.executing', { toolName })}
               </span>
             </div>
           )}

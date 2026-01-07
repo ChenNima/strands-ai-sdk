@@ -27,7 +27,7 @@ export function MobileSidebar({
   onSelectConversation,
   onDeleteConversation,
 }: ConversationSidebarProps) {
-  const t = useTranslations('chat');
+  const t = useTranslations();
   const [open, setOpen] = useState(false);
 
   const handleSelectConversation = (uuid: string) => {
@@ -59,7 +59,7 @@ export function MobileSidebar({
               variant="default"
             >
               <PlusIcon className="size-4" />
-              {t('newChat')}
+              {t('chat.newChat')}
             </Button>
           </div>
         </SheetHeader>
@@ -72,7 +72,7 @@ export function MobileSidebar({
               </div>
             ) : conversations.length === 0 ? (
               <div className="text-sm text-muted-foreground py-8 text-center">
-                {t('noConversations')}
+                {t('chat.noConversations')}
               </div>
             ) : (
               conversations.map((conv) => (
@@ -93,7 +93,7 @@ export function MobileSidebar({
                     variant="ghost"
                     size="icon"
                     className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity h-7 w-7"
-                    title={t('deleteConversation')}
+                    title={t('chat.deleteConversation')}
                   >
                     <Trash2Icon className="h-4 w-4 text-destructive" />
                   </Button>

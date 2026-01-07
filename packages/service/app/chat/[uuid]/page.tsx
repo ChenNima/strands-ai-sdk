@@ -8,7 +8,7 @@ import { LoadingScreen } from '@/components/loading-screen';
 
 export default function Page() {
   const params = useParams();
-  const t = useTranslations('common');
+  const t = useTranslations();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -21,7 +21,7 @@ export default function Page() {
   }, [params]);
 
   if (isLoading || !conversationId) {
-    return <LoadingScreen message={t('loading')} />;
+    return <LoadingScreen message={t('common.loading')} />;
   }
 
   return <ChatInterface conversationId={conversationId} />;

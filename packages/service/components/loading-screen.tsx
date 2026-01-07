@@ -20,13 +20,13 @@ export interface LoadingScreenProps {
  * ```
  */
 export function LoadingScreen({ message, size = 40 }: LoadingScreenProps) {
-  const t = useTranslations('common');
+  const t = useTranslations();
 
   return (
     <div className="flex items-center justify-center min-h-screen">
       <div className="text-center space-y-4">
         <Loader size={size} />
-        <p className="text-muted-foreground">{message || t('loading')}</p>
+        <p className="text-muted-foreground">{message || t('common.loading')}</p>
       </div>
     </div>
   );

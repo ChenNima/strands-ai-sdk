@@ -16,13 +16,13 @@ import {
 import { ThemeToggle } from "./theme-toggle";
 
 export const Navbar = () => {
-  const t = useTranslations("navbar");
+  const t = useTranslations();
   const { user, isAuthenticated, logout } = useAuth();
 
   return (
     <div className="p-2 flex flex-row gap-2 justify-between items-center border-b">
       <Link href="/chat">
-        <h1 className="text-lg font-semibold">{t("title")}</h1>
+        <h1 className="text-lg font-semibold">{t("navbar.title")}</h1>
       </Link>
 
       <div className="flex items-center gap-2">
@@ -32,11 +32,11 @@ export const Navbar = () => {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm">
               <User className="mr-2 h-4 w-4" />
-              {user.profile?.name || user.profile?.email || t("user")}
+              {user.profile?.name || user.profile?.email || t("navbar.user")}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>{t("myAccount")}</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("navbar.myAccount")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {user.profile?.email && (
               <>
@@ -48,7 +48,7 @@ export const Navbar = () => {
             )}
             <DropdownMenuItem onClick={logout}>
               <LogOut className="mr-2 h-4 w-4" />
-              {t("signOut")}
+              {t("navbar.signOut")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

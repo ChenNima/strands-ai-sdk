@@ -44,7 +44,7 @@ export interface ChatInterfaceProps {
  */
 export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   const router = useRouter();
-  const t = useTranslations('chat');
+  const t = useTranslations();
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const { getAccessToken } = useAuth();
 
@@ -208,8 +208,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
             <ConversationContent>
               {messages.length === 0 ? (
                 <ConversationEmptyState
-                  title={t('startConversation')}
-                  description={t('askAnything')}
+                  title={t('chat.startConversation')}
+                  description={t('chat.askAnything')}
                   icon={<MessageSquareIcon className="size-6" />}
                 />
               ) : (
@@ -254,7 +254,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
                     <div className="flex items-center gap-2 p-4">
                       <Loader size={24} />
                       <span className="text-sm text-muted-foreground">
-                        {t('aiThinking')}
+                        {t('chat.aiThinking')}
                       </span>
                     </div>
                   )}
@@ -266,7 +266,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           <div className="border-t p-4 bg-background">
             <PromptInput onSubmit={handleSubmit} className="max-w-4xl mx-auto">
               <PromptInputTextarea
-                placeholder={t('sendMessage')}
+                placeholder={t('chat.sendMessage')}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 disabled={isLoading}

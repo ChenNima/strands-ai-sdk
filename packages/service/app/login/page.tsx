@@ -10,8 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { LoadingScreen } from '@/components/loading-screen';
 
 export default function LoginPage() {
-  const t = useTranslations('login');
-  const tCommon = useTranslations('common');
+  const t = useTranslations();
   const { isAuthenticated, isLoading, login } = useAuth();
   const router = useRouter();
 
@@ -22,19 +21,19 @@ export default function LoginPage() {
   }, [isAuthenticated, router]);
 
   if (isLoading) {
-    return <LoadingScreen message={tCommon('loading')} />;
+    return <LoadingScreen message={t('common.loading')} />;
   }
 
   if (isAuthenticated) {
-    return <LoadingScreen message={tCommon('redirecting')} />;
+    return <LoadingScreen message={t('common.redirecting')} />;
   }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">{t('title')}</CardTitle>
-          <CardDescription>{t('description')}</CardDescription>
+          <CardTitle className="text-2xl">{t('login.title')}</CardTitle>
+          <CardDescription>{t('login.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Button
@@ -43,7 +42,7 @@ export default function LoginPage() {
             size="lg"
           >
             <LogIn className="mr-2 h-5 w-5" />
-            {t('signIn')}
+            {t('login.signIn')}
           </Button>
         </CardContent>
       </Card>

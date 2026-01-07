@@ -9,7 +9,7 @@ import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function CallbackPage() {
-  const t = useTranslations('auth');
+  const t = useTranslations();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
@@ -32,15 +32,15 @@ export default function CallbackPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center space-y-4">
           <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
-          <p className="text-destructive font-medium">{t('authFailed')}</p>
+          <p className="text-destructive font-medium">{t('auth.authFailed')}</p>
           <p className="text-sm text-muted-foreground">{error}</p>
           <Button onClick={() => router.push('/login')} variant="outline">
-            {t('backToLogin')}
+            {t('auth.backToLogin')}
           </Button>
         </div>
       </div>
     );
   }
 
-  return <LoadingScreen message={t('completing')} />;
+  return <LoadingScreen message={t('auth.completing')} />;
 }

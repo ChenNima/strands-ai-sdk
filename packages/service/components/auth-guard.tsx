@@ -11,7 +11,7 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
-  const t = useTranslations('common');
+  const t = useTranslations();
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
@@ -22,11 +22,11 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }, [isLoading, isAuthenticated, router]);
 
   if (isLoading) {
-    return <LoadingScreen message={t('loading')} />;
+    return <LoadingScreen message={t('common.loading')} />;
   }
 
   if (!isAuthenticated) {
-    return <LoadingScreen message={t('redirecting')} />;
+    return <LoadingScreen message={t('common.redirecting')} />;
   }
 
   return <>{children}</>;
