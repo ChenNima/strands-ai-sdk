@@ -130,7 +130,6 @@ Create a `.env` file based on `.env.example` (at the monorepo root):
 
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/dbname
-ZHIPU_API_KEY=your_zhipu_api_key  # Optional for web search
 OIDC_ISSUER=your_oidc_issuer_url
 OIDC_CLIENT_ID=your_client_id
 ```

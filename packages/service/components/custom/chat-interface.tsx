@@ -217,7 +217,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       try {
         setIsLoadingMessages(true);
         const data = await api.getConversationMessages(conversationId);
-        setMessages(data);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setMessages(data as any);
       } catch (error) {
         console.error('Failed to fetch messages:', error);
         setMessages([]);

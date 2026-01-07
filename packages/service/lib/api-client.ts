@@ -3,7 +3,51 @@
 import { getAccessToken } from './auth';
 
 /**
- * API client with automatic token injection
+ * API endpoint constants
+ */
+const API_ENDPOINTS = {
+  CONVERSATIONS: '/api/conversations',
+} as const;
+
+/**
+ * Conversation item from API
+ */
+export interface ConversationItem {
+  uuid: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Custom error class for API errors
+ */
+export class ApiError extends Error {
+  status: number;
+  statusText: string;
+  url: string;
+
+  constructor({
+    status,
+    statusText,
+    message,
+    url,
+  }: {
+    status: number;
+    statusText: string;
+    message: string;
+    url: string;
+  }) {
+    super(`API Error ${status}: ${message}`);
+    this.name = 'ApiError';
+    this.status = status;
+    this.statusText = statusText;
+    this.url = url;
+  }
+}
+
+/**
+ * API client with automatic token injection and error handling
  */
 export class ApiClient {
   private baseUrl: string;
@@ -29,26 +73,50 @@ export class ApiClient {
   }
 
   /**
-   * Make a GET request
+   * Handle API response errors
    */
-  async get<T = any>(url: string): Promise<T> {
-    const headers = await this.getHeaders();
-    const response = await fetch(`${this.baseUrl}${url}`, {
-      method: 'GET',
-      headers,
-    });
-
+  private async handleResponse<T>(response: Response, url: string): Promise<T> {
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
+      const errorBody = await response.text().catch(() => response.statusText);
+      throw new ApiError({
+        status: response.status,
+        statusText: response.statusText,
+        message: errorBody,
+        url,
+      });
+    }
+
+    // Handle empty responses (e.g., 204 No Content)
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      return {} as T;
     }
 
     return response.json();
   }
 
   /**
-   * Make a POST request
+   * Make a GET request
+   * @param url - The API endpoint URL
+   * @returns The response data
    */
-  async post<T = any>(url: string, data?: any): Promise<T> {
+  async get<T = unknown>(url: string): Promise<T> {
+    const headers = await this.getHeaders();
+    const response = await fetch(`${this.baseUrl}${url}`, {
+      method: 'GET',
+      headers,
+    });
+
+    return this.handleResponse<T>(response, url);
+  }
+
+  /**
+   * Make a POST request
+   * @param url - The API endpoint URL
+   * @param data - The request body data
+   * @returns The response data
+   */
+  async post<T = unknown>(url: string, data?: unknown): Promise<T> {
     const headers = await this.getHeaders();
     const response = await fetch(`${this.baseUrl}${url}`, {
       method: 'POST',
@@ -56,17 +124,16 @@ export class ApiClient {
       body: data ? JSON.stringify(data) : undefined,
     });
 
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
-    }
-
-    return response.json();
+    return this.handleResponse<T>(response, url);
   }
 
   /**
    * Make a PUT request
+   * @param url - The API endpoint URL
+   * @param data - The request body data
+   * @returns The response data
    */
-  async put<T = any>(url: string, data?: any): Promise<T> {
+  async put<T = unknown>(url: string, data?: unknown): Promise<T> {
     const headers = await this.getHeaders();
     const response = await fetch(`${this.baseUrl}${url}`, {
       method: 'PUT',
@@ -74,34 +141,31 @@ export class ApiClient {
       body: data ? JSON.stringify(data) : undefined,
     });
 
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
-    }
-
-    return response.json();
+    return this.handleResponse<T>(response, url);
   }
 
   /**
    * Make a DELETE request
+   * @param url - The API endpoint URL
+   * @returns The response data
    */
-  async delete<T = any>(url: string): Promise<T> {
+  async delete<T = unknown>(url: string): Promise<T> {
     const headers = await this.getHeaders();
     const response = await fetch(`${this.baseUrl}${url}`, {
       method: 'DELETE',
       headers,
     });
 
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
-    }
-
-    return response.json();
+    return this.handleResponse<T>(response, url);
   }
 
   /**
    * Make a PATCH request
+   * @param url - The API endpoint URL
+   * @param data - The request body data
+   * @returns The response data
    */
-  async patch<T = any>(url: string, data?: any): Promise<T> {
+  async patch<T = unknown>(url: string, data?: unknown): Promise<T> {
     const headers = await this.getHeaders();
     const response = await fetch(`${this.baseUrl}${url}`, {
       method: 'PATCH',
@@ -109,33 +173,36 @@ export class ApiClient {
       body: data ? JSON.stringify(data) : undefined,
     });
 
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
-    }
-
-    return response.json();
+    return this.handleResponse<T>(response, url);
   }
 }
 
 // Export a default instance
 export const apiClient = new ApiClient();
 
-// Helper functions for common API calls
+/**
+ * Typed API helper functions for common API calls
+ */
 export const api = {
   /**
-   * Get all conversations
+   * Get all conversations for the current user
+   * @returns Array of conversation objects
    */
-  getConversations: () => apiClient.get('/api/conversations'),
+  getConversations: (): Promise<ConversationItem[]> =>
+    apiClient.get<ConversationItem[]>(API_ENDPOINTS.CONVERSATIONS),
 
   /**
-   * Get messages for a conversation
+   * Get messages for a specific conversation
+   * @param conversationId - The UUID of the conversation
+   * @returns Array of message objects
    */
-  getConversationMessages: (conversationId: string) =>
-    apiClient.get(`/api/conversations/${conversationId}/messages`),
+  getConversationMessages: (conversationId: string): Promise<unknown[]> =>
+    apiClient.get<unknown[]>(`${API_ENDPOINTS.CONVERSATIONS}/${conversationId}/messages`),
 
   /**
    * Delete a conversation
+   * @param conversationId - The UUID of the conversation to delete
    */
-  deleteConversation: (conversationId: string) =>
-    apiClient.delete(`/api/conversations/${conversationId}`),
+  deleteConversation: (conversationId: string): Promise<void> =>
+    apiClient.delete<void>(`${API_ENDPOINTS.CONVERSATIONS}/${conversationId}`),
 };

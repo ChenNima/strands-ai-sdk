@@ -1,109 +1,126 @@
 import Link from "next/link";
-import React, { memo } from "react";
+import React, { memo, type ReactNode, type HTMLAttributes } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import type { Element } from "hast";
+
+interface CodeProps extends HTMLAttributes<HTMLElement> {
+  node?: Element;
+  inline?: boolean;
+  className?: string;
+  children?: ReactNode;
+}
+
+interface ElementProps extends HTMLAttributes<HTMLElement> {
+  node?: Element;
+  children?: ReactNode;
+}
+
+interface LinkProps extends HTMLAttributes<HTMLAnchorElement> {
+  node?: Element;
+  children?: ReactNode;
+  href?: string;
+}
 
 const NonMemoizedMarkdown = ({ children }: { children: string }) => {
   const components: Partial<Components> = {
-    // @ts-expect-error
-    code: ({ node, inline, className, children, ...props }) => {
+    code: ({ inline, className, children, ...props }: CodeProps) => {
       const match = /language-(\w+)/.exec(className || "");
       return !inline && match ? (
-        // @ts-expect-error
-        (<pre
-          {...props}
+        <pre
+          {...(props as HTMLAttributes<HTMLPreElement>)}
           className={`${className} text-sm w-[80dvw] md:max-w-[500px] overflow-x-scroll bg-zinc-100 p-3 rounded-lg mt-2 dark:bg-zinc-800`}
         >
           <code className={match[1]}>{children}</code>
-        </pre>)
+        </pre>
       ) : (
         <code
-          className={`${className} text-sm bg-zinc-100 dark:bg-zinc-800 py-0.5 px-1 rounded-md`}
+          className={`${className || ''} text-sm bg-zinc-100 dark:bg-zinc-800 py-0.5 px-1 rounded-md`}
           {...props}
         >
           {children}
         </code>
       );
     },
-    ol: ({ node, children, ...props }) => {
+    ol: ({ children, ...props }: ElementProps) => {
       return (
-        <ol className="list-decimal list-outside ml-4" {...props}>
+        <ol className="list-decimal list-outside ml-4" {...(props as HTMLAttributes<HTMLOListElement>)}>
           {children}
         </ol>
       );
     },
-    li: ({ node, children, ...props }) => {
+    li: ({ children, ...props }: ElementProps) => {
       return (
-        <li className="py-1" {...props}>
+        <li className="py-1" {...(props as HTMLAttributes<HTMLLIElement>)}>
           {children}
         </li>
       );
     },
-    ul: ({ node, children, ...props }) => {
+    ul: ({ children, ...props }: ElementProps) => {
       return (
-        <ul className="list-decimal list-outside ml-4" {...props}>
+        <ul className="list-disc list-outside ml-4" {...(props as HTMLAttributes<HTMLUListElement>)}>
           {children}
         </ul>
       );
     },
-    strong: ({ node, children, ...props }) => {
+    strong: ({ children, ...props }: ElementProps) => {
       return (
         <span className="font-semibold" {...props}>
           {children}
         </span>
       );
     },
-    a: ({ node, children, ...props }) => {
+    a: ({ children, href, ...props }: LinkProps) => {
       return (
-        // @ts-expect-error
         <Link
           className="text-blue-500 hover:underline"
           target="_blank"
           rel="noreferrer"
-          {...props}
+          href={href || '#'}
+          {...(props as Omit<HTMLAttributes<HTMLAnchorElement>, 'href'>)}
         >
           {children}
         </Link>
       );
     },
-    h1: ({ node, children, ...props }) => {
+    h1: ({ children, ...props }: ElementProps) => {
       return (
-        <h1 className="text-3xl font-semibold mt-6 mb-2" {...props}>
+        <h1 className="text-3xl font-semibold mt-6 mb-2" {...(props as HTMLAttributes<HTMLHeadingElement>)}>
           {children}
         </h1>
       );
     },
-    h2: ({ node, children, ...props }) => {
+    h2: ({ children, ...props }: ElementProps) => {
       return (
-        <h2 className="text-2xl font-semibold mt-6 mb-2" {...props}>
+        <h2 className="text-2xl font-semibold mt-6 mb-2" {...(props as HTMLAttributes<HTMLHeadingElement>)}>
           {children}
         </h2>
       );
     },
-    h3: ({ node, children, ...props }) => {
+    h3: ({ children, ...props }: ElementProps) => {
       return (
-        <h3 className="text-xl font-semibold mt-6 mb-2" {...props}>
+        <h3 className="text-xl font-semibold mt-6 mb-2" {...(props as HTMLAttributes<HTMLHeadingElement>)}>
           {children}
         </h3>
       );
     },
-    h4: ({ node, children, ...props }) => {
+    h4: ({ children, ...props }: ElementProps) => {
       return (
-        <h4 className="text-lg font-semibold mt-6 mb-2" {...props}>
+        <h4 className="text-lg font-semibold mt-6 mb-2" {...(props as HTMLAttributes<HTMLHeadingElement>)}>
           {children}
         </h4>
       );
     },
-    h5: ({ node, children, ...props }) => {
+    h5: ({ children, ...props }: ElementProps) => {
       return (
-        <h5 className="text-base font-semibold mt-6 mb-2" {...props}>
+        <h5 className="text-base font-semibold mt-6 mb-2" {...(props as HTMLAttributes<HTMLHeadingElement>)}>
           {children}
         </h5>
       );
     },
-    h6: ({ node, children, ...props }) => {
+    h6: ({ children, ...props }: ElementProps) => {
       return (
-        <h6 className="text-sm font-semibold mt-6 mb-2" {...props}>
+        <h6 className="text-sm font-semibold mt-6 mb-2" {...(props as HTMLAttributes<HTMLHeadingElement>)}>
           {children}
         </h6>
       );

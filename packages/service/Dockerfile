@@ -10,13 +10,16 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile
+RUN pnpm install
 
 # Copy frontend source code
 COPY . .
 
 # Build Next.js app
 RUN pnpm run build
+
+RUN mkdir -p .next/standalone/.next \
+&& cp -r .next/static .next/standalone/.next/
 
 # Production stage
 FROM python:3.11-slim
@@ -33,8 +36,7 @@ RUN apt-get update && apt-get install -y \
 
 # Install Node.js (needed for Next.js)
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
-    && npm install -g pnpm@10.8.0
+    && apt-get install -y nodejs
 
 # Copy Python dependencies
 COPY pyproject.toml .
@@ -51,12 +53,10 @@ COPY migrations ./migrations
 COPY --from=frontend-builder /app/.next ./.next
 COPY --from=frontend-builder /app/public ./public
 COPY --from=frontend-builder /app/package.json ./package.json
-COPY --from=frontend-builder /app/node_modules ./node_modules
 
 # Copy other necessary files
 COPY next.config.js .
 COPY components.json .
-COPY .env.example .env.local
 
 # Configure nginx
 RUN echo 'server {\n\
@@ -134,8 +134,8 @@ stderr_logfile=/dev/stderr\n\
 stderr_logfile_maxbytes=0\n\
 \n\
 [program:nextjs]\n\
-command=pnpm start\n\
-directory=/app\n\
+command=/usr/bin/env HOSTNAME="0.0.0.0" node server.js\n\
+directory=/app/.next/standalone\n\
 autostart=true\n\
 autorestart=true\n\
 stdout_logfile=/dev/stdout\n\

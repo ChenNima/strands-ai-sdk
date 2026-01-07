@@ -1,25 +1,27 @@
-"use client";
+'use client';
 
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { ChatInterface } from "@/components/custom/chat-interface";
+import { useParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
+import { ChatInterface } from '@/components/chat';
+import { LoadingScreen } from '@/components/loading-screen';
 
 export default function Page() {
   const params = useParams();
+  const t = useTranslations('common');
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const id = params?.uuid as string;
     if (id) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setConversationId(id);
       setIsLoading(false);
     }
   }, [params]);
 
   if (isLoading || !conversationId) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return <LoadingScreen message={t('loading')} />;
   }
 
   return <ChatInterface conversationId={conversationId} />;

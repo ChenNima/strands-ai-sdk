@@ -1,0 +1,106 @@
+{
+  "common": {
+    "loading": "加载中...",
+    "redirecting": "跳转中...",
+    "error": "发生错误",
+    "tryAgain": "重试",
+    "cancel": "取消",
+    "confirm": "确认",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "close": "关闭"
+  },
+  "auth": {
+    "signIn": "使用 OIDC 登录",
+    "signOut": "退出登录",
+    "signingIn": "登录中...",
+    "completing": "登录中...",
+    "myAccount": "我的账户",
+    "signInFailed": "登录失败，请重试。",
+    "authFailed": "认证失败",
+    "backToLogin": "返回登录"
+  },
+  "chat": {
+    "newChat": "新对话",
+    "noConversations": "暂无对话",
+    "startConversation": "开始对话",
+    "askAnything": "问我任何关于天气或其他话题的问题",
+    "sendMessage": "发送消息...",
+    "aiThinking": "AI 正在思考...",
+    "deleteConversation": "删除对话",
+    "deleteConfirm": {
+      "title": "删除对话",
+      "description": "确定要删除此对话吗？此操作无法撤销。",
+      "cancel": "取消",
+      "delete": "删除",
+      "deleting": "删除中..."
+    }
+  },
+  "tool": {
+    "approve": "批准",
+    "deny": "拒绝",
+    "requiresApproval": "工具需要批准：",
+    "input": "输入：",
+    "parameters": "参数",
+    "result": "结果",
+    "error": "错误",
+    "gettingWeather": "获取天气中...",
+    "executing": "执行 {toolName} 中...",
+    "status": {
+      "pending": "等待中",
+      "running": "运行中",
+      "awaitingApproval": "等待批准",
+      "responded": "已响应",
+      "completed": "已完成",
+      "error": "错误",
+      "denied": "已拒绝"
+    }
+  },
+  "navbar": {
+    "title": "Strands AI SDK",
+    "user": "用户",
+    "myAccount": "我的账户",
+    "signOut": "退出登录"
+  },
+  "login": {
+    "title": "欢迎使用 Strands AI SDK",
+    "welcome": "欢迎使用 Strands AI SDK",
+    "description": "登录开始与 AI 代理聊天",
+    "signIn": "使用 OIDC 登录"
+  },
+  "suggestions": {
+    "weatherSF": {
+      "title": "旧金山的天气",
+      "label": "怎么样？",
+      "action": "旧金山的天气怎么样？"
+    },
+    "pythonAI": {
+      "title": "Python 对于",
+      "label": "AI 工程师有什么用？",
+      "action": "Python 对于 AI 工程师有什么用？"
+    }
+  },
+  "errorBoundary": {
+    "title": "出错了",
+    "tryAgain": "重试"
+  },
+  "metadata": {
+    "title": "AI SDK Python 流式预览",
+    "description": "使用数据流协议从 Python 端点 (FastAPI) 流式传输聊天完成，并在 Next.js 应用中使用 useChat hook 显示。"
+  },
+  "conversation": {
+    "noMessagesTitle": "暂无消息",
+    "noMessagesDescription": "开始对话以查看消息"
+  },
+  "promptInput": {
+    "placeholder": "你想知道什么？",
+    "addPhotosOrFiles": "添加图片或文件",
+    "uploadFiles": "上传文件"
+  },
+  "attachment": {
+    "remove": "移除附件",
+    "image": "图片",
+    "file": "附件"
+  }
+}

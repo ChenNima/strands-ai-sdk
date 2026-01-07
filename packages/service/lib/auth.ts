@@ -10,8 +10,15 @@ if (process.env.NODE_ENV === 'development') {
 
 // OIDC configuration - only issuer and client_id are required
 // All other endpoints are auto-discovered from .well-known/openid-configuration
-const issuer = process.env.NEXT_PUBLIC_OIDC_ISSUER || '';
-const clientId = process.env.NEXT_PUBLIC_OIDC_CLIENT_ID || '';
+const issuer = process.env.NEXT_PUBLIC_OIDC_ISSUER || process.env.OIDC_CLIENT_ID || '';
+const clientId = process.env.NEXT_PUBLIC_OIDC_CLIENT_ID || process.env.OIDC_CLIENT_ID || '';
+
+// Validate required environment variables on client side
+if (typeof window !== 'undefined' && (!issuer || !clientId)) {
+  console.error(
+    'Missing required OIDC configuration. Please check NEXT_PUBLIC_OIDC_ISSUER and NEXT_PUBLIC_OIDC_CLIENT_ID environment variables.'
+  );
+}
 
 export const oidcConfig = {
   authority: issuer, // Authority is the issuer URL

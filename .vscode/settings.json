@@ -1,3 +1,5 @@
 {
-  "i18n-ally.localesPaths": []
+  "i18n-ally.localesPaths": [
+    "packages/service/messages"
+  ]
 }

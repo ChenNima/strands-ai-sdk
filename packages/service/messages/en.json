@@ -1,0 +1,106 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "redirecting": "Redirecting...",
+    "error": "An error occurred",
+    "tryAgain": "Try again",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close"
+  },
+  "auth": {
+    "signIn": "Sign In with OIDC",
+    "signOut": "Sign Out",
+    "signingIn": "Completing sign in...",
+    "completing": "Completing sign in...",
+    "myAccount": "My Account",
+    "signInFailed": "Sign in failed. Please try again.",
+    "authFailed": "Authentication failed",
+    "backToLogin": "Back to Login"
+  },
+  "chat": {
+    "newChat": "New Chat",
+    "noConversations": "No conversations yet",
+    "startConversation": "Start a conversation",
+    "askAnything": "Ask me anything about the weather or other topics",
+    "sendMessage": "Send a message...",
+    "aiThinking": "AI is thinking...",
+    "deleteConversation": "Delete conversation",
+    "deleteConfirm": {
+      "title": "Delete Conversation",
+      "description": "Are you sure you want to delete this conversation? This action cannot be undone.",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "deleting": "Deleting..."
+    }
+  },
+  "tool": {
+    "approve": "Approve",
+    "deny": "Deny",
+    "requiresApproval": "Tool requires approval:",
+    "input": "Input:",
+    "parameters": "Parameters",
+    "result": "Result",
+    "error": "Error",
+    "gettingWeather": "Getting weather...",
+    "executing": "Executing {toolName}...",
+    "status": {
+      "pending": "Pending",
+      "running": "Running",
+      "awaitingApproval": "Awaiting Approval",
+      "responded": "Responded",
+      "completed": "Completed",
+      "error": "Error",
+      "denied": "Denied"
+    }
+  },
+  "navbar": {
+    "title": "Strands AI SDK",
+    "user": "User",
+    "myAccount": "My Account",
+    "signOut": "Sign Out"
+  },
+  "login": {
+    "title": "Welcome to Strands AI SDK",
+    "welcome": "Welcome to Strands AI SDK",
+    "description": "Sign in to start chatting with AI agents",
+    "signIn": "Sign In with OIDC"
+  },
+  "suggestions": {
+    "weatherSF": {
+      "title": "What is the weather",
+      "label": "in San Francisco?",
+      "action": "What is the weather in San Francisco?"
+    },
+    "pythonAI": {
+      "title": "How is python useful",
+      "label": "for AI engineers?",
+      "action": "How is python useful for AI engineers?"
+    }
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "tryAgain": "Try again"
+  },
+  "metadata": {
+    "title": "AI SDK Python Streaming Preview",
+    "description": "Use the Data Stream Protocol to stream chat completions from a Python endpoint (FastAPI) and display them using the useChat hook in your Next.js application."
+  },
+  "conversation": {
+    "noMessagesTitle": "No messages yet",
+    "noMessagesDescription": "Start a conversation to see messages here"
+  },
+  "promptInput": {
+    "placeholder": "What would you like to know?",
+    "addPhotosOrFiles": "Add photos or files",
+    "uploadFiles": "Upload files"
+  },
+  "attachment": {
+    "remove": "Remove attachment",
+    "image": "Image",
+    "file": "Attachment"
+  }
+}

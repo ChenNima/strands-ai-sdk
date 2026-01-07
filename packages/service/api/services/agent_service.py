@@ -127,11 +127,6 @@ def create_agent_with_session(conversation_id: str, config_path: str = "api/conf
         "strands_tools.calculator",
         "api/utils/tools.py"
     ]
-    zhipu_api_key = os.getenv("ZHIPU_API_KEY")
-    if zhipu_api_key:
-        zhipu_mcp = MCPClient(lambda: sse_client(
-        f"https://open.bigmodel.cn/api/mcp/web_search/sse?Authorization={os.getenv("ZHIPU_API_KEY")}"))
-        tools += [zhipu_mcp]
     agent: Agent = config_to_agent(
         config=config_path, session_manager=session_manager, tools=tools)
     return agent

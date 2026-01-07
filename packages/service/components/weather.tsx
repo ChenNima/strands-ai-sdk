@@ -2,7 +2,21 @@
 
 import { cn } from "@/lib/utils";
 import { format, isWithinInterval } from "date-fns";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+/**
+ * Debounce helper for performance optimization
+ */
+function debounce<T extends (...args: unknown[]) => void>(
+  fn: T,
+  delay: number
+): (...args: Parameters<T>) => void {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
+}
 
 interface WeatherAtLocation {
   latitude: number;
@@ -206,46 +220,74 @@ export function Weather({
 }: {
   weatherAtLocation?: WeatherAtLocation;
 }) {
-  const currentHigh = Math.max(
-    ...weatherAtLocation.hourly.temperature_2m.slice(0, 24),
-  );
-  const currentLow = Math.min(
-    ...weatherAtLocation.hourly.temperature_2m.slice(0, 24),
-  );
+  // Memoize computed values to avoid recalculation on each render
+  const { currentHigh, currentLow, isDay } = useMemo(() => {
+    const high = Math.max(
+      ...weatherAtLocation.hourly.temperature_2m.slice(0, 24),
+    );
+    const low = Math.min(
+      ...weatherAtLocation.hourly.temperature_2m.slice(0, 24),
+    );
+    const day = isWithinInterval(new Date(weatherAtLocation.current.time), {
+      start: new Date(weatherAtLocation.daily.sunrise[0]),
+      end: new Date(weatherAtLocation.daily.sunset[0]),
+    });
+    return { currentHigh: high, currentLow: low, isDay: day };
+  }, [
+    weatherAtLocation,
+    weatherAtLocation.hourly.temperature_2m,
+    weatherAtLocation.current.time,
+    weatherAtLocation.daily.sunrise,
+    weatherAtLocation.daily.sunset,
+  ]);
 
-  const isDay = isWithinInterval(new Date(weatherAtLocation.current.time), {
-    start: new Date(weatherAtLocation.daily.sunrise[0]),
-    end: new Date(weatherAtLocation.daily.sunset[0]),
+  const [isMobile, setIsMobile] = useState(() => {
+    // Initialize with proper value on mount
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768;
+    }
+    return false;
   });
 
-  const [isMobile, setIsMobile] = useState(false);
-
   useEffect(() => {
+    // Debounced resize handler for better performance
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
     };
 
-    handleResize();
-    window.addEventListener("resize", handleResize);
+    const debouncedResize = debounce(handleResize, 150);
 
-    return () => window.removeEventListener("resize", handleResize);
+    window.addEventListener("resize", debouncedResize);
+
+    return () => window.removeEventListener("resize", debouncedResize);
   }, []);
 
   const hoursToShow = isMobile ? 5 : 6;
 
   // Find the index of the current time or the next closest time
-  const currentTimeIndex = weatherAtLocation.hourly.time.findIndex(
+  let currentTimeIndex = weatherAtLocation.hourly.time.findIndex(
     (time) => new Date(time) >= new Date(weatherAtLocation.current.time),
+  );
+
+  // If no future time found, use the last available index
+  if (currentTimeIndex === -1) {
+    currentTimeIndex = Math.max(0, weatherAtLocation.hourly.time.length - hoursToShow);
+  }
+
+  // Ensure we don't go beyond array bounds
+  const endIndex = Math.min(
+    currentTimeIndex + hoursToShow,
+    weatherAtLocation.hourly.time.length
   );
 
   // Slice the arrays to get the desired number of items
   const displayTimes = weatherAtLocation.hourly.time.slice(
     currentTimeIndex,
-    currentTimeIndex + hoursToShow,
+    endIndex,
   );
   const displayTemperatures = weatherAtLocation.hourly.temperature_2m.slice(
     currentTimeIndex,
-    currentTimeIndex + hoursToShow,
+    endIndex,
   );
 
   return (
