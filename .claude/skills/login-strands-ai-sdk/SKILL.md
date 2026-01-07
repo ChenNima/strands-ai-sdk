@@ -1,7 +1,7 @@
 ---
 name: login-strands-ai-sdk
 description: Login to Strands AI SDK application using Playwright MCP
-allowed-tools:
+allowedTools:
   - mcp__playwright__*
 ---
 

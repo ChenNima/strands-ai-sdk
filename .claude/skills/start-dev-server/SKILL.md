@@ -1,7 +1,7 @@
 ---
 name: start-dev-server
 description: Start the Strands AI SDK development server (frontend + backend)
-allowed-tools:
+allowedTools:
   - Bash
 ---
 
