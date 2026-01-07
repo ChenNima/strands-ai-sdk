@@ -7,12 +7,13 @@ from fastapi.responses import StreamingResponse
 from openai import OpenAI
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from strands import Agent
+from strands.types.content import ContentBlock
 
 # Import ClientMessage type from prompt module
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from api.utils.prompt import ClientMessage, convert_to_openai_messages
+from api.utils.prompt import ClientMessage
 
 
 async def stream_strands_agent(
@@ -91,12 +92,22 @@ async def stream_strands_agent(
             # For approval responses, pass interrupt responses directly to agent
             agent_input = interrupt_responses
         else:
-            # Convert AI SDK messages to OpenAI format for agent
-            openai_messages = convert_to_openai_messages(messages)
-            # Extract content from last message
-            if openai_messages:
-                last_message = openai_messages[-1]
-                agent_input = last_message.get("content", "")
+            # Extract the last text content directly from messages
+            agent_input: list[ContentBlock] = []
+            if messages:
+                last_msg = messages[-1]
+                if last_msg.parts:
+                    # Find the last text part
+                    for part in reversed(last_msg.parts):
+                        if part.type == 'text' and part.text:
+                            agent_input.append({
+                                'text': part.text,
+                            })
+                            break
+                elif last_msg.content:
+                    agent_input.append({
+                        'text': last_msg.content,
+                    })
         
         # Stream agent response
         async for event in agent.stream_async(agent_input):
