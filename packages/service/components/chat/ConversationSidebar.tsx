@@ -4,7 +4,6 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader } from '@/components/ai-elements/loader';
-import { ThemeToggle } from '@/components/theme-toggle';
 import { PlusIcon, Trash2Icon } from 'lucide-react';
 import type { ConversationItem } from '@/lib/api-client';
 
@@ -33,17 +32,14 @@ export function ConversationSidebar({
   return (
     <div className="w-64 border-r bg-background flex-col h-full hidden md:flex">
       <div className="p-4 border-b">
-        <div className="flex gap-2">
-          <ThemeToggle />
-          <Button
-            onClick={onNewChat}
-            className="flex-1 gap-2"
-            variant="default"
-          >
-            <PlusIcon className="size-4" />
-            {t('newChat')}
-          </Button>
-        </div>
+        <Button
+          onClick={onNewChat}
+          className="w-full gap-2"
+          variant="default"
+        >
+          <PlusIcon className="size-4" />
+          {t('newChat')}
+        </Button>
       </div>
 
       <ScrollArea className="flex-1">

@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import { ThemeToggle } from "./theme-toggle";
 
 export const Navbar = () => {
   const t = useTranslations("navbar");
@@ -24,8 +25,10 @@ export const Navbar = () => {
         <h1 className="text-lg font-semibold">{t("title")}</h1>
       </Link>
 
-      {isAuthenticated && user && (
-        <DropdownMenu>
+      <div className="flex items-center gap-2">
+        <ThemeToggle />
+        {isAuthenticated && user && (
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm">
               <User className="mr-2 h-4 w-4" />
@@ -49,7 +52,8 @@ export const Navbar = () => {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      )}
+        )}
+      </div>
     </div>
   );
 };
