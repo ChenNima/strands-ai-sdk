@@ -7,6 +7,7 @@ import { getAccessToken } from './auth';
  */
 const API_ENDPOINTS = {
   CONVERSATIONS: '/api/conversations',
+  FILES: '/api/files',
 } as const;
 
 /**
@@ -17,6 +18,17 @@ export interface ConversationItem {
   title: string;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * File upload response from API
+ */
+export interface FileUploadResponse {
+  uuid: string;
+  filename: string;
+  mime_type: string;
+  file_size: number;
+  created_at: string;
 }
 
 /**
@@ -64,6 +76,20 @@ export class ApiClient {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    return headers;
+  }
+
+  /**
+   * Get auth headers only (for multipart/form-data requests)
+   */
+  private async getAuthHeaders(): Promise<HeadersInit> {
+    const token = await getAccessToken();
+    const headers: HeadersInit = {};
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -122,6 +148,23 @@ export class ApiClient {
       method: 'POST',
       headers,
       body: data ? JSON.stringify(data) : undefined,
+    });
+
+    return this.handleResponse<T>(response, url);
+  }
+
+  /**
+   * Make a POST request with FormData (for file uploads)
+   * @param url - The API endpoint URL
+   * @param formData - The FormData object
+   * @returns The response data
+   */
+  async postFormData<T = unknown>(url: string, formData: FormData): Promise<T> {
+    const headers = await this.getAuthHeaders();
+    const response = await fetch(`${this.baseUrl}${url}`, {
+      method: 'POST',
+      headers,
+      body: formData,
     });
 
     return this.handleResponse<T>(response, url);
@@ -205,4 +248,36 @@ export const api = {
    */
   deleteConversation: (conversationId: string): Promise<void> =>
     apiClient.delete<void>(`${API_ENDPOINTS.CONVERSATIONS}/${conversationId}`),
+
+  /**
+   * Upload files
+   * @param files - Array of files or FileList to upload
+   * @returns Array of uploaded file metadata
+   */
+  uploadFiles: (files: File[] | FileList): Promise<FileUploadResponse[]> => {
+    const formData = new FormData();
+    const fileArray = Array.from(files);
+    fileArray.forEach((file) => {
+      formData.append('files', file);
+    });
+    return apiClient.postFormData<FileUploadResponse[]>(
+      `${API_ENDPOINTS.FILES}/upload`,
+      formData
+    );
+  },
+
+  /**
+   * Get file metadata
+   * @param fileId - The UUID of the file
+   * @returns File metadata
+   */
+  getFile: (fileId: string): Promise<FileUploadResponse> =>
+    apiClient.get<FileUploadResponse>(`${API_ENDPOINTS.FILES}/${fileId}`),
+
+  /**
+   * Delete a file
+   * @param fileId - The UUID of the file to delete
+   */
+  deleteFile: (fileId: string): Promise<void> =>
+    apiClient.delete<void>(`${API_ENDPOINTS.FILES}/${fileId}`),
 };

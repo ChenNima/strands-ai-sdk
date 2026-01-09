@@ -9,6 +9,7 @@ import {
   Conversation,
   ConversationContent,
   ConversationEmptyState,
+  ConversationScrollButton,
 } from '@/components/ai-elements/conversation';
 import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message';
 import {
@@ -16,10 +17,11 @@ import {
   PromptInputTextarea,
   PromptInputSubmit,
   PromptInputFooter,
+  PromptInputHeader,
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input';
 import { Loader } from '@/components/ai-elements/loader';
-import { MessageSquareIcon, FileText } from 'lucide-react';
+import { MessageSquareIcon, FileText, Upload } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 
 import { ConversationSidebar } from './ConversationSidebar';
@@ -27,7 +29,7 @@ import { MobileSidebar } from './MobileSidebar';
 import { DeleteConfirmDialog } from './DeleteConfirmDialog';
 import { ToolRenderer } from './ToolRenderer';
 import { FileUploadButton } from './FileUploadButton';
-import { FileList } from './FileList';
+import { FileAttachments } from './FileList';
 import { useConversations } from './hooks/useConversations';
 import { useFileUpload } from './hooks/useFileUpload';
 import type { ToolUIPart } from 'ai';
@@ -105,6 +107,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounterRef = useRef(0);
 
   const isLoading = useMemo(
     () => status === 'submitted' || status === 'streaming',
@@ -193,6 +197,45 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     [uploadFiles]
   );
 
+  // Drag and drop handlers
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounterRef.current = 0;
+      setIsDragging(false);
+
+      const droppedFiles = e.dataTransfer.files;
+      if (droppedFiles.length > 0) {
+        await handleFilesSelected(droppedFiles);
+      }
+    },
+    [handleFilesSelected]
+  );
+
   const handleDeleteClick = useCallback((uuid: string) => {
     setConversationToDelete(uuid);
     setDeleteDialogOpen(true);
@@ -248,7 +291,23 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         <ConversationSidebar {...sidebarProps} />
 
         {/* Main Chat Area */}
-        <div className="flex flex-col h-full w-full flex-1">
+        <div
+          className="flex flex-col h-full w-full flex-1 relative"
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {/* Drag overlay */}
+          {isDragging && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm border-2 border-dashed border-primary rounded-lg m-2">
+              <div className="flex flex-col items-center gap-2 text-primary">
+                <Upload className="size-12" />
+                <p className="text-lg font-medium">{t('promptInput.uploadFiles')}</p>
+              </div>
+            </div>
+          )}
+
           {/* Mobile Header */}
           <div className="md:hidden flex items-center gap-2 p-2 border-b">
             <MobileSidebar {...sidebarProps} />
@@ -327,17 +386,14 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
                 </>
               )}
             </ConversationContent>
+            <ConversationScrollButton />
           </Conversation>
 
           <div className="border-t p-4 bg-background">
-            {/* File list */}
-            {files.length > 0 && (
-              <div className="max-w-4xl mx-auto mb-2">
-                <FileList files={files} onRemove={removeFile} />
-              </div>
-            )}
-
             <PromptInput onSubmit={handleSubmit} className="max-w-4xl mx-auto">
+              <PromptInputHeader>
+                <FileAttachments files={files} onRemove={removeFile} />
+              </PromptInputHeader>
               <PromptInputTextarea
                 placeholder={t('chat.sendMessage')}
                 value={input}

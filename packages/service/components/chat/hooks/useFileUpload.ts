@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { getAccessToken } from '@/lib/auth';
+import { api, ApiError } from '@/lib/api-client';
 
 export interface UploadedFile {
   id: string;
@@ -81,33 +81,12 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
       setFiles((prev) => [...prev, ...pendingFiles]);
 
       try {
-        const formData = new FormData();
-        filesToUpload.forEach((file) => {
-          formData.append('files', file);
-        });
-
-        const token = await getAccessToken();
-        const response = await fetch('/api/files/upload', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.detail || 'Upload failed');
-        }
-
-        const uploadedFiles = await response.json();
+        const uploadedFiles = await api.uploadFiles(filesToUpload);
 
         // Update status to completed
         setFiles((prev) =>
           prev.map((f) => {
-            const uploaded = uploadedFiles.find(
-              (u: { filename: string }) => u.filename === f.filename
-            );
+            const uploaded = uploadedFiles.find((u) => u.filename === f.filename);
             if (uploaded) {
               return {
                 ...f,
@@ -119,16 +98,23 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
           })
         );
 
-        return uploadedFiles.map((f: { uuid: string }) => f.uuid);
+        return uploadedFiles.map((f) => f.uuid);
       } catch (error) {
         // Update status to failed
+        const errorMessage =
+          error instanceof ApiError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : 'Upload failed';
+
         setFiles((prev) =>
           prev.map((f) =>
             f.status === 'uploading'
               ? {
                   ...f,
                   status: 'failed',
-                  error: error instanceof Error ? error.message : 'Upload failed',
+                  error: errorMessage,
                 }
               : f
           )
@@ -141,11 +127,32 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     [files.length, maxFiles, validateFile]
   );
 
-  const removeFile = useCallback((fileId: string) => {
-    setFiles((prev) => prev.filter((f) => f.id !== fileId));
-  }, []);
+  const removeFile = useCallback(
+    async (fileId: string) => {
+      // Find the file to check if it's completed (uploaded to S3)
+      const fileToRemove = files.find((f) => f.id === fileId);
+
+      // If file was successfully uploaded, delete from server
+      if (fileToRemove?.status === 'completed') {
+        try {
+          await api.deleteFile(fileId);
+        } catch (error) {
+          // Log error but don't block removal from UI
+          // 404 is acceptable (file may already be deleted)
+          if (error instanceof ApiError && error.status !== 404) {
+            console.error('Failed to delete file from server:', error.message);
+          }
+        }
+      }
+
+      // Always remove from local state
+      setFiles((prev) => prev.filter((f) => f.id !== fileId));
+    },
+    [files]
+  );
 
   const clearFiles = useCallback(() => {
+    // Just clear local state - files are kept on S3 as they are referenced in the message
     setFiles([]);
   }, []);
 
