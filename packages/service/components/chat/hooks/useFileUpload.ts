@@ -19,9 +19,15 @@ interface UseFileUploadOptions {
 }
 
 const DEFAULT_ALLOWED_TYPES = [
+  // Documents
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/msword',
+  // Images
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
 ];
 
 const DEFAULT_MAX_SIZE = 20 * 1024 * 1024; // 20MB

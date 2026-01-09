@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 from sqlmodel import Session, select
 
 from ..models.file_upload import FileUpload, FileUploadCreate
-from ..utils.file_format import is_allowed_file_type, MAX_FILE_SIZE
+from ..utils.file_format import is_allowed_file_type, is_image_type, MAX_FILE_SIZE
 from .s3_storage import get_s3_storage
 from .document_parser import get_document_parser
 
@@ -59,12 +59,14 @@ class FileService:
             content_type=file_data.mime_type,
         )
 
-        # Parse document to markdown
-        markdown_content = self.parser.parse(
-            content=file_content,
-            mime_type=file_data.mime_type,
-            filename=file_data.filename,
-        )
+        # Parse document to markdown (skip for images)
+        markdown_content = None
+        if not is_image_type(file_data.mime_type):
+            markdown_content = self.parser.parse(
+                content=file_content,
+                mime_type=file_data.mime_type,
+                filename=file_data.filename,
+            )
 
         # Create database record
         file_upload = FileUpload(

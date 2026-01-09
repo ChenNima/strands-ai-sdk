@@ -14,9 +14,15 @@ interface FileUploadButtonProps {
 }
 
 const DEFAULT_ACCEPT = [
+  // Documents
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/msword',
+  // Images
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
 ].join(',');
 
 export function FileUploadButton({
@@ -57,7 +63,7 @@ export function FileUploadButton({
         onClick={handleClick}
         disabled={disabled || isUploading}
         className={cn('h-8 w-8', className)}
-        title="Add PDF or Word document"
+        title="Add file or image"
       >
         {isUploading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
