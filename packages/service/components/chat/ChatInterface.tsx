@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useChat, type UIMessage } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { useRouter } from 'next/navigation';
@@ -19,14 +19,17 @@ import {
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input';
 import { Loader } from '@/components/ai-elements/loader';
-import { MessageSquareIcon } from 'lucide-react';
+import { MessageSquareIcon, FileText } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 
 import { ConversationSidebar } from './ConversationSidebar';
 import { MobileSidebar } from './MobileSidebar';
 import { DeleteConfirmDialog } from './DeleteConfirmDialog';
 import { ToolRenderer } from './ToolRenderer';
+import { FileUploadButton } from './FileUploadButton';
+import { FileList } from './FileList';
 import { useConversations } from './hooks/useConversations';
+import { useFileUpload } from './hooks/useFileUpload';
 import type { ToolUIPart } from 'ai';
 
 export interface ChatInterfaceProps {
@@ -55,6 +58,16 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     deleteConversation,
   } = useConversations();
 
+  // File upload hook
+  const {
+    files,
+    isUploading,
+    uploadFiles,
+    removeFile,
+    clearFiles,
+    getCompletedFileIds,
+  } = useFileUpload();
+
   // Chat hook
   const { messages, sendMessage, addToolApprovalResponse, setMessages, status } = useChat({
     id: conversationId,
@@ -69,10 +82,18 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           : {};
       },
       prepareSendMessagesRequest({ messages, id }) {
+        const lastMessage = messages[messages.length - 1];
+
+        // Extract file IDs from parts array (filter type='file' and get url)
+        const fileIds = (lastMessage as any).parts
+          ?.filter((part: any) => part.type === 'file')
+          .map((part: any) => part.url) || [];
+
         return {
           body: {
-            message: messages[messages.length - 1],
+            message: lastMessage,
             id,
+            file_ids: fileIds.length > 0 ? fileIds : undefined,
           },
         };
       },
@@ -134,13 +155,42 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
 
   const handleSubmit = useCallback(
     (_message: PromptInputMessage) => {
-      if (!input.trim()) {
+      if (!input.trim() && files.length === 0) {
         return;
       }
-      sendMessage({ text: input });
+
+      // Get completed file IDs
+      const fileIds = getCompletedFileIds();
+
+      // Send message with files (url field contains file ID)
+      sendMessage({
+        text: input,
+        files: fileIds.map((id) => {
+          const file = files.find((f) => f.id === id);
+          return {
+            type: 'file' as const,
+            name: file?.filename || 'file',
+            url: id,
+            mediaType: file?.mimeType || 'application/octet-stream',
+          };
+        }),
+      });
+
       setInput('');
+      clearFiles();
     },
-    [input, sendMessage]
+    [input, files, getCompletedFileIds, sendMessage, clearFiles]
+  );
+
+  const handleFilesSelected = useCallback(
+    async (fileList: FileList) => {
+      try {
+        await uploadFiles(fileList);
+      } catch (error) {
+        console.error('Upload failed:', error);
+      }
+    },
+    [uploadFiles]
   );
 
   const handleDeleteClick = useCallback((uuid: string) => {
@@ -227,6 +277,22 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
                             );
                           }
 
+                          // Handle file parts
+                          if (part.type === 'file') {
+                            const filePart = part as { type: 'file'; name: string; url: string; mediaType: string };
+                            return (
+                              <div
+                                key={`${message.id}-file-${i}`}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border bg-muted/50 w-fit mb-2"
+                              >
+                                <FileText className="h-4 w-4 text-muted-foreground" />
+                                <span className="max-w-[200px] truncate" title={filePart.name}>
+                                  {filePart.name}
+                                </span>
+                              </div>
+                            );
+                          }
+
                           // Handle tool calls - type is "tool-{toolName}" in AI SDK v5
                           if (part.type?.startsWith('tool-')) {
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -264,6 +330,13 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           </Conversation>
 
           <div className="border-t p-4 bg-background">
+            {/* File list */}
+            {files.length > 0 && (
+              <div className="max-w-4xl mx-auto mb-2">
+                <FileList files={files} onRemove={removeFile} />
+              </div>
+            )}
+
             <PromptInput onSubmit={handleSubmit} className="max-w-4xl mx-auto">
               <PromptInputTextarea
                 placeholder={t('chat.sendMessage')}
@@ -272,9 +345,14 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
                 disabled={isLoading}
               />
               <PromptInputFooter>
+                <FileUploadButton
+                  onFilesSelected={handleFilesSelected}
+                  isUploading={isUploading}
+                  disabled={isLoading}
+                />
                 <PromptInputSubmit
                   status={status}
-                  disabled={!input.trim() || isLoading}
+                  disabled={(!input.trim() && files.length === 0) || isLoading || isUploading}
                 />
               </PromptInputFooter>
             </PromptInput>

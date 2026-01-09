@@ -1,11 +1,13 @@
 import json
 import traceback
-import uuid
-from typing import Any, Callable, Dict, List, Mapping, Sequence
+import uuid as uuid_module
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
+from uuid import UUID
 
 from fastapi.responses import StreamingResponse
 from openai import OpenAI
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
+from sqlmodel import Session
 from strands import Agent
 from strands.types.content import ContentBlock
 
@@ -14,6 +16,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from api.utils.prompt import ClientMessage
+from api.services.content_builder import ContentBlockBuilder
 
 
 async def stream_strands_agent(
@@ -21,6 +24,9 @@ async def stream_strands_agent(
     messages: List[ClientMessage],
     protocol: str = "data",
     on_finish: Callable[[Dict[str, Any]], None] = None,
+    file_ids: Optional[List[str]] = None,
+    user_uuid: Optional[UUID] = None,
+    session: Optional[Session] = None,
 ):
     """Yield Server-Sent Events for a streaming Strands Agent completion.
     
@@ -39,7 +45,7 @@ async def stream_strands_agent(
         def format_sse(payload: dict) -> str:
             return f"data: {json.dumps(payload, separators=(',', ':'))}\n\n"
 
-        text_stream_id = f"text-{uuid.uuid4().hex[:8]}"
+        text_stream_id = f"text-{uuid_module.uuid4().hex[:8]}"
         text_started = False
         text_finished = False
         tool_calls_state: Dict[str, Dict[str, Any]] = {}
@@ -81,9 +87,9 @@ async def stream_strands_agent(
         
         # Set message_id: use existing id if resuming from interrupt, otherwise generate new
         if is_approval_response and messages:
-            message_id = getattr(messages[-1], 'id', f"msg-{uuid.uuid4().hex}")
+            message_id = getattr(messages[-1], 'id', f"msg-{uuid_module.uuid4().hex}")
         else:
-            message_id = f"msg-{uuid.uuid4().hex}"
+            message_id = f"msg-{uuid_module.uuid4().hex}"
         
         yield format_sse({"type": "start", "messageId": message_id})
         
@@ -92,22 +98,30 @@ async def stream_strands_agent(
             # For approval responses, pass interrupt responses directly to agent
             agent_input = interrupt_responses
         else:
-            # Extract the last text content directly from messages
-            agent_input: list[ContentBlock] = []
+            # Extract the last text content from messages
+            text_content = ""
             if messages:
                 last_msg = messages[-1]
                 if last_msg.parts:
                     # Find the last text part
                     for part in reversed(last_msg.parts):
                         if part.type == 'text' and part.text:
-                            agent_input.append({
-                                'text': part.text,
-                            })
+                            text_content = part.text
                             break
                 elif last_msg.content:
-                    agent_input.append({
-                        'text': last_msg.content,
-                    })
+                    text_content = last_msg.content
+
+            # Build agent_input with files if provided
+            if file_ids and session and user_uuid:
+                # Use ContentBlockBuilder to build ContentBlocks with files
+                content_builder = ContentBlockBuilder(session)
+                file_uuids = [UUID(fid) for fid in file_ids]
+                agent_input = content_builder.build(text_content, file_uuids, user_uuid)
+            else:
+                # No files, just text
+                agent_input: list[ContentBlock] = []
+                if text_content:
+                    agent_input.append({'text': text_content})
         
         # Stream agent response
         async for event in agent.stream_async(agent_input):
@@ -251,7 +265,7 @@ async def stream_strands_agent(
                                         
                                         # Reset text stream state for potential new text after tool
                                         # Generate new text_stream_id and reset flags
-                                        text_stream_id = f"text-{uuid.uuid4().hex[:8]}"
+                                        text_stream_id = f"text-{uuid_module.uuid4().hex[:8]}"
                                         text_started = False
                                         text_finished = False
                                     else:
@@ -300,7 +314,7 @@ async def stream_strands_agent(
                                         
                                         # Reset text stream state for potential new text after tool error
                                         # Generate new text_stream_id and reset flags
-                                        text_stream_id = f"text-{uuid.uuid4().hex[:8]}"
+                                        text_stream_id = f"text-{uuid_module.uuid4().hex[:8]}"
                                         text_started = False
                                         text_finished = False
                 
@@ -427,7 +441,7 @@ def stream_text(
         def format_sse(payload: dict) -> str:
             return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
-        message_id = f"msg-{uuid.uuid4().hex}"
+        message_id = f"msg-{uuid_module.uuid4().hex}"
         text_stream_id = "text-1"
         text_started = False
         text_finished = False
