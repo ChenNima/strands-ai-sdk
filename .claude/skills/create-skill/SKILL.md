@@ -205,6 +205,7 @@ Run the test suite and show coverage report
 | `login-strands-ai-sdk` | `.claude/skills/login-strands-ai-sdk/` | Playwright login automation |
 | `db-migrate` | `.claude/skills/db-migrate/` | Database migrations |
 | `create-fastapi-service` | `.claude/skills/create-fastapi-service/` | Scaffold FastAPI service |
+| `add-api-endpoint` | `.claude/skills/add-api-endpoint/` | Add API endpoint to frontend api-client.ts |
 
 ## Example Usage
 
