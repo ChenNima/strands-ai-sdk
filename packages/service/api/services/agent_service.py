@@ -10,7 +10,7 @@ from mcp.client.sse import sse_client
 from sqlmodel import select
 from strands import Agent
 from strands.experimental import config_to_agent
-from strands.session.file_session_manager import FileSessionManager
+from strands.session.s3_session_manager import S3SessionManager
 from strands.tools.mcp import MCPClient
 
 from ..database.session import get_session, get_session_context
@@ -119,9 +119,16 @@ def save_ai_message(
 
 
 def create_agent_with_session(conversation_id: str, config_path: str = "api/config/default_agent.json"):
-    """Create Strands agent with session manager."""
-    session_manager = FileSessionManager(
-        session_id=conversation_id, storage_dir="./sessions")
+    """Create Strands agent with S3 session manager.
+
+    Session data is stored in S3 under: s3://{MSC_S3_BUCKET}/sessions/{session_id}/
+    """
+    bucket = os.environ["MSC_S3_BUCKET"]
+    session_manager = S3SessionManager(
+        session_id=conversation_id,
+        bucket=bucket,
+        prefix="sessions/",
+    )
     tools = [
         "strands_tools.current_time",
         "strands_tools.calculator",
