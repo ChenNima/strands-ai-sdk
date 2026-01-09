@@ -61,7 +61,10 @@
     "title": "Strands AI SDK",
     "user": "User",
     "myAccount": "My Account",
-    "signOut": "Sign Out"
+    "signOut": "Sign Out",
+    "language": "Language",
+    "english": "English",
+    "chinese": "中文"
   },
   "login": {
     "title": "Welcome to Strands AI SDK",

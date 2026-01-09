@@ -3,7 +3,9 @@
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Loader } from '@/components/ai-elements/loader';
-import { LogIn, LogOut, User } from 'lucide-react';
+import { LogIn, LogOut, User, Languages, Check } from 'lucide-react';
+import { useTranslations, useLocale } from 'next-intl';
+import { useCallback } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,10 +13,25 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
 
 export function AuthButton() {
   const { user, isLoading, isAuthenticated, login, logout } = useAuth();
+  const t = useTranslations('navbar');
+  const locale = useLocale();
+
+  const switchLanguage = useCallback((newLocale: string) => {
+    // Save to localStorage
+    localStorage.setItem('locale', newLocale);
+    // Set cookie for server-side rendering
+    document.cookie = `locale=${newLocale};path=/;max-age=31536000`;
+    // Reload page to apply new locale
+    window.location.reload();
+  }, []);
 
   if (isLoading) {
     return (
@@ -42,7 +59,7 @@ export function AuthButton() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuLabel>My Account</DropdownMenuLabel>
+        <DropdownMenuLabel>{t('myAccount')}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {user?.profile?.email && (
           <>
@@ -52,9 +69,30 @@ export function AuthButton() {
             <DropdownMenuSeparator />
           </>
         )}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <Languages className="mr-2 h-4 w-4" />
+            {t('language')}
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem onClick={() => switchLanguage('en')}>
+                {locale === 'en' && <Check className="mr-2 h-4 w-4" />}
+                {locale !== 'en' && <span className="mr-2 w-4" />}
+                {t('english')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => switchLanguage('zh')}>
+                {locale === 'zh' && <Check className="mr-2 h-4 w-4" />}
+                {locale !== 'zh' && <span className="mr-2 w-4" />}
+                {t('chinese')}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={logout}>
           <LogOut className="mr-2 h-4 w-4" />
-          Sign Out
+          {t('signOut')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

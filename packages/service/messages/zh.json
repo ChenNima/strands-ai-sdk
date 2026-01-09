@@ -61,7 +61,10 @@
     "title": "Strands AI SDK",
     "user": "用户",
     "myAccount": "我的账户",
-    "signOut": "退出登录"
+    "signOut": "退出登录",
+    "language": "语言",
+    "english": "English",
+    "chinese": "中文"
   },
   "login": {
     "title": "欢迎使用 Strands AI SDK",
