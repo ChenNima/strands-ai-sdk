@@ -3,4 +3,7 @@ export { ConversationSidebar } from './ConversationSidebar';
 export { DeleteConfirmDialog } from './DeleteConfirmDialog';
 export { MobileSidebar } from './MobileSidebar';
 export { ToolRenderer } from './ToolRenderer';
+export { FileUploadButton } from './FileUploadButton';
+export { FileList } from './FileList';
 export { useConversations } from './hooks/useConversations';
+export { useFileUpload } from './hooks/useFileUpload';

@@ -33,3 +33,6 @@ vercel-sdk==0.0.8
 python-jose[cryptography]==3.5.0
 oic==1.7.0
 cachetools>=6.2.4
+python-multipart>=0.0.6
+boto3>=1.34.0
+markitdown[all]>=0.1.4

@@ -46,3 +46,6 @@ cdk.context.json
 
 # sessions
 sessions
+
+# test data
+test-data

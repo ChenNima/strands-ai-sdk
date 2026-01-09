@@ -1,6 +1,6 @@
 """
 Routes package.
 """
-from . import auth, conversations, agent
+from . import auth, conversations, agent, files
 
-__all__ = ["auth", "conversations", "agent"]
+__all__ = ["auth", "conversations", "agent", "files"]

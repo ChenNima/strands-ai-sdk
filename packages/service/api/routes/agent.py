@@ -8,6 +8,7 @@ from fastapi import APIRouter, Query, Request as FastAPIRequest
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from ..database.session import get_session
 from ..services.agent_service import (
     get_or_create_conversation,
     save_user_message,
@@ -25,6 +26,7 @@ class AgentRequest(BaseModel):
     message: Optional[ClientMessage] = None
     messages: Optional[List[ClientMessage]] = None
     trigger: Optional[str] = None
+    file_ids: Optional[List[str]] = None
 
 
 @router.post("/chat")
@@ -63,12 +65,16 @@ async def chat_with_agent(
         save_ai_message(UUID(conversation_id), buffered_message, message_id)
 
     # Generate streaming response
+    session = get_session()
     async def generate():
         async for chunk in stream_strands_agent(
             agent_with_session,
             messages,
             protocol,
-            on_finish=on_finish_callback
+            on_finish=on_finish_callback,
+            file_ids=request.file_ids,
+            user_uuid=user.uuid,
+            session=session,
         ):
             yield chunk
 
