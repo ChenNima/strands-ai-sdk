@@ -9,7 +9,23 @@
     "save": "保存",
     "delete": "删除",
     "edit": "编辑",
-    "close": "关闭"
+    "close": "关闭",
+    "create": "创建"
+  },
+  "agent": {
+    "selectAgent": "选择代理",
+    "selectAgentDescription": "选择一个代理开始聊天，或创建一个新的代理",
+    "createNew": "创建新代理",
+    "createNewDescription": "从一个新的代理开始",
+    "createNewAgent": "创建新代理",
+    "createNewAgentDescription": "为您的代理起一个名字开始使用",
+    "name": "名称",
+    "namePlaceholder": "我的代理",
+    "noAgents": "还没有代理。创建您的第一个代理开始使用！",
+    "createdAt": "创建于",
+    "deleteAgent": "删除代理",
+    "deleteAgentConfirmation": "确定要删除 \"{name}\" 吗？这将同时删除与此代理的所有对话。此操作无法撤销。",
+    "untitled": "未命名代理"
   },
   "auth": {
     "signIn": "使用 OIDC 登录",

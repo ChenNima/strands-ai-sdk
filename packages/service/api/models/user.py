@@ -7,6 +7,7 @@ from .base import UUIDMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from .conversation import Conversation
+    from .agent import Agent
 
 
 class UserBase(SQLModel):
@@ -39,6 +40,15 @@ class User(UserBase, UUIDMixin, TimestampMixin, table=True):
     
     # Reverse relationship with conversations
     conversations: List["Conversation"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "lazy": "selectin"
+        }
+    )
+
+    # Reverse relationship with agents
+    agents: List["Agent"] = Relationship(
         back_populates="user",
         sa_relationship_kwargs={
             "cascade": "all, delete-orphan",

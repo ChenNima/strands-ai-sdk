@@ -20,26 +20,29 @@ from ..utils.prompt import ClientMessage
 logger = logging.getLogger(__name__)
 
 
-def get_or_create_conversation(conversation_id: str, user_uuid: UUID) -> Conversation:
+def get_or_create_conversation(conversation_id: str, user_uuid: UUID, agent_uuid: UUID) -> Conversation:
     """Get or create a conversation for the user.
 
     Args:
         conversation_id: UUID string for the conversation
         user_uuid: User's UUID
+        agent_uuid: Agent's UUID
     """
     session = get_session()
     conversation = None
     if conversation_id:
         stmt = select(Conversation).where(
             Conversation.uuid == UUID(conversation_id),
-            Conversation.user_id == user_uuid
+            Conversation.user_id == user_uuid,
+            Conversation.agent_id == agent_uuid
         )
         conversation = session.exec(stmt).first()
 
     if not conversation:
         conversation = Conversation(
             uuid=UUID(conversation_id) if conversation_id else None,
-            user_id=user_uuid
+            user_id=user_uuid,
+            agent_id=agent_uuid
         )
         session.add(conversation)
         session.commit()

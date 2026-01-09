@@ -10,6 +10,7 @@ from .base import UUIDMixin, TimestampMixin
 if TYPE_CHECKING:
     from .message import Message
     from .user import User
+    from .agent import Agent
 
 
 class ConversationBase(SQLModel):
@@ -41,11 +42,25 @@ class Conversation(ConversationBase, UUIDMixin, TimestampMixin, table=True):
         index=True,
         description="User UUID that owns this conversation"
     )
-    
+
+    # Foreign key to Agent.uuid
+    agent_id: Optional[UUID] = Field(
+        default=None,
+        foreign_key="agents.uuid",
+        index=True,
+        description="Agent UUID that this conversation belongs to"
+    )
+
     # Relationship with User
     user: Optional["User"] = Relationship(
         back_populates="conversations",
         sa_relationship_kwargs={"foreign_keys": "[Conversation.user_id]"}
+    )
+
+    # Relationship with Agent
+    agent: Optional["Agent"] = Relationship(
+        back_populates="conversations",
+        sa_relationship_kwargs={"foreign_keys": "[Conversation.agent_id]"}
     )
     
     # Reverse relationship with cascade delete

@@ -3,10 +3,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api, type ConversationItem } from '@/lib/api-client';
 
+interface UseConversationsOptions {
+  agentId?: string;
+}
+
 /**
  * Hook for managing conversations list
  */
-export function useConversations() {
+export function useConversations(options: UseConversationsOptions = {}) {
+  const { agentId } = options;
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -15,7 +20,9 @@ export function useConversations() {
     try {
       setIsLoading(true);
       setError(null);
-      const data = await api.getConversations();
+      const data = agentId
+        ? await api.getAgentConversations(agentId)
+        : await api.getConversations();
       setConversations(data);
     } catch (err) {
       console.error('Failed to fetch conversations:', err);
@@ -23,7 +30,7 @@ export function useConversations() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [agentId]);
 
   const deleteConversation = useCallback(async (conversationId: string) => {
     try {

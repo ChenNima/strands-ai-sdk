@@ -4,16 +4,18 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader } from '@/components/ai-elements/loader';
-import { PlusIcon, Trash2Icon } from 'lucide-react';
+import { PlusIcon, Trash2Icon, ChevronLeft, Bot } from 'lucide-react';
 import type { ConversationItem } from '@/lib/api-client';
 
 export interface ConversationSidebarProps {
   conversations: ConversationItem[];
   currentConversationId: string;
   isLoading: boolean;
+  agentName?: string;
   onNewChat: () => void;
   onSelectConversation: (uuid: string) => void;
   onDeleteConversation: (uuid: string) => void;
+  onBackToAgents?: () => void;
 }
 
 /**
@@ -23,14 +25,31 @@ export function ConversationSidebar({
   conversations,
   currentConversationId,
   isLoading,
+  agentName,
   onNewChat,
   onSelectConversation,
   onDeleteConversation,
+  onBackToAgents,
 }: ConversationSidebarProps) {
   const t = useTranslations();
 
   return (
     <div className="w-64 border-r bg-background flex-col h-full hidden md:flex">
+      {/* Agent Header */}
+      {onBackToAgents && (
+        <div className="p-3 border-b bg-muted/30">
+          <Button
+            onClick={onBackToAgents}
+            variant="ghost"
+            className="w-full justify-start gap-2 h-auto py-2 px-2 hover:bg-muted"
+          >
+            <ChevronLeft className="size-4 text-muted-foreground" />
+            <Bot className="size-4 text-primary" />
+            <span className="truncate font-medium">{agentName || t('agent.untitled')}</span>
+          </Button>
+        </div>
+      )}
+
       <div className="p-4 border-b">
         <Button
           onClick={onNewChat}

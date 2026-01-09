@@ -26,6 +26,32 @@ def get_user_conversations(user_uuid: UUID) -> List[Dict[str, Any]]:
         {
             "uuid": str(conv.uuid),
             "title": conv.title or "Untitled",
+            "agent_id": str(conv.agent_id) if conv.agent_id else None,
+            "created_at": conv.created_at.isoformat() if conv.created_at else None,
+            "updated_at": conv.updated_at.isoformat() if conv.updated_at else None,
+        }
+        for conv in conversations
+    ]
+
+
+def get_agent_conversations(agent_uuid: UUID, user_uuid: UUID) -> List[Dict[str, Any]]:
+    """Get all conversations for a specific agent.
+
+    Args:
+        agent_uuid: Agent's UUID
+        user_uuid: User's UUID for ownership verification
+    """
+    session = get_session()
+    stmt = select(Conversation).where(
+        Conversation.agent_id == agent_uuid,
+        Conversation.user_id == user_uuid
+    ).order_by(Conversation.updated_at.desc())
+    conversations = session.exec(stmt).all()
+    return [
+        {
+            "uuid": str(conv.uuid),
+            "title": conv.title or "Untitled",
+            "agent_id": str(conv.agent_id) if conv.agent_id else None,
             "created_at": conv.created_at.isoformat() if conv.created_at else None,
             "updated_at": conv.updated_at.isoformat() if conv.updated_at else None,
         }

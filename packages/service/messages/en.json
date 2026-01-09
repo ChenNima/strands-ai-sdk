@@ -9,7 +9,23 @@
     "save": "Save",
     "delete": "Delete",
     "edit": "Edit",
-    "close": "Close"
+    "close": "Close",
+    "create": "Create"
+  },
+  "agent": {
+    "selectAgent": "Select an Agent",
+    "selectAgentDescription": "Choose an agent to start chatting with or create a new one",
+    "createNew": "Create New Agent",
+    "createNewDescription": "Start with a fresh agent",
+    "createNewAgent": "Create New Agent",
+    "createNewAgentDescription": "Give your agent a name to get started",
+    "name": "Name",
+    "namePlaceholder": "My Agent",
+    "noAgents": "No agents yet. Create your first agent to get started!",
+    "createdAt": "Created",
+    "deleteAgent": "Delete Agent",
+    "deleteAgentConfirmation": "Are you sure you want to delete \"{name}\"? This will also delete all conversations with this agent. This action cannot be undone.",
+    "untitled": "Untitled Agent"
   },
   "auth": {
     "signIn": "Sign In with OIDC",

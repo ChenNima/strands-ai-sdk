@@ -13,7 +13,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { MenuIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { MenuIcon, PlusIcon, Trash2Icon, ChevronLeft, Bot } from 'lucide-react';
 import type { ConversationSidebarProps } from './ConversationSidebar';
 
 /**
@@ -23,9 +23,11 @@ export function MobileSidebar({
   conversations,
   currentConversationId,
   isLoading,
+  agentName,
   onNewChat,
   onSelectConversation,
   onDeleteConversation,
+  onBackToAgents,
 }: ConversationSidebarProps) {
   const t = useTranslations();
   const [open, setOpen] = useState(false);
@@ -40,6 +42,13 @@ export function MobileSidebar({
     setOpen(false);
   };
 
+  const handleBackToAgents = () => {
+    if (onBackToAgents) {
+      onBackToAgents();
+      setOpen(false);
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
@@ -51,6 +60,18 @@ export function MobileSidebar({
       <SheetContent side="left" className="w-72 p-0">
         <SheetHeader className="p-4 border-b">
           <SheetTitle className="sr-only">Conversations</SheetTitle>
+          {/* Agent Header */}
+          {onBackToAgents && (
+            <Button
+              onClick={handleBackToAgents}
+              variant="ghost"
+              className="w-full justify-start gap-2 h-auto py-2 px-2 mb-2 hover:bg-muted"
+            >
+              <ChevronLeft className="size-4 text-muted-foreground" />
+              <Bot className="size-4 text-primary" />
+              <span className="truncate font-medium">{agentName || t('agent.untitled')}</span>
+            </Button>
+          )}
           <div className="flex gap-2">
             <ThemeToggle />
             <Button

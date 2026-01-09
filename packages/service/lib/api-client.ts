@@ -6,9 +6,20 @@ import { getAccessToken } from './auth';
  * API endpoint constants
  */
 const API_ENDPOINTS = {
+  AGENTS: '/api/agents',
   CONVERSATIONS: '/api/conversations',
   FILES: '/api/files',
 } as const;
+
+/**
+ * Agent item from API
+ */
+export interface AgentItem {
+  uuid: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
 
 /**
  * Conversation item from API
@@ -16,6 +27,7 @@ const API_ENDPOINTS = {
 export interface ConversationItem {
   uuid: string;
   title: string;
+  agent_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -228,11 +240,58 @@ export const apiClient = new ApiClient();
  */
 export const api = {
   /**
+   * Get all agents for the current user
+   * @returns Array of agent objects
+   */
+  getAgents: (): Promise<AgentItem[]> =>
+    apiClient.get<AgentItem[]>(API_ENDPOINTS.AGENTS),
+
+  /**
+   * Get a specific agent by UUID
+   * @param agentId - The UUID of the agent
+   * @returns Agent object
+   */
+  getAgent: (agentId: string): Promise<AgentItem> =>
+    apiClient.get<AgentItem>(`${API_ENDPOINTS.AGENTS}/${agentId}`),
+
+  /**
+   * Create a new agent
+   * @param name - Optional name for the agent
+   * @returns Created agent object
+   */
+  createAgent: (name?: string): Promise<AgentItem> =>
+    apiClient.post<AgentItem>(API_ENDPOINTS.AGENTS, { name }),
+
+  /**
+   * Update an agent
+   * @param agentId - The UUID of the agent
+   * @param name - New name for the agent
+   * @returns Updated agent object
+   */
+  updateAgent: (agentId: string, name?: string): Promise<AgentItem> =>
+    apiClient.put<AgentItem>(`${API_ENDPOINTS.AGENTS}/${agentId}`, { name }),
+
+  /**
+   * Delete an agent
+   * @param agentId - The UUID of the agent to delete
+   */
+  deleteAgent: (agentId: string): Promise<void> =>
+    apiClient.delete<void>(`${API_ENDPOINTS.AGENTS}/${agentId}`),
+
+  /**
    * Get all conversations for the current user
    * @returns Array of conversation objects
    */
   getConversations: (): Promise<ConversationItem[]> =>
     apiClient.get<ConversationItem[]>(API_ENDPOINTS.CONVERSATIONS),
+
+  /**
+   * Get all conversations for a specific agent
+   * @param agentId - The UUID of the agent
+   * @returns Array of conversation objects
+   */
+  getAgentConversations: (agentId: string): Promise<ConversationItem[]> =>
+    apiClient.get<ConversationItem[]>(`${API_ENDPOINTS.CONVERSATIONS}/agent/${agentId}`),
 
   /**
    * Get messages for a specific conversation

@@ -8,7 +8,7 @@ from vercel.headers import set_headers
 
 from .middleware.auth import authenticate_requests
 from .middleware.database import database_session_middleware
-from .routes import auth, conversations, agent, files
+from .routes import auth, conversations, agent, files, agents
 
 load_dotenv(".env.local")
 
@@ -34,6 +34,7 @@ app.middleware("http")(database_session_middleware)
 
 # Register routers
 app.include_router(auth.router, prefix="/api", tags=["auth"])
+app.include_router(agents.router, prefix="/api/agents", tags=["agents"])
 app.include_router(conversations.router, prefix="/api/conversations", tags=["conversations"])
 app.include_router(agent.router, prefix="/api/agent", tags=["agent"])
 app.include_router(files.router, prefix="/api/files", tags=["files"])

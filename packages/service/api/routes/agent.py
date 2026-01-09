@@ -4,7 +4,7 @@ Agent routes for AI chat interactions.
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Query, Request as FastAPIRequest
+from fastapi import APIRouter, HTTPException, Query, Request as FastAPIRequest
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -15,6 +15,7 @@ from ..services.agent_service import (
     save_ai_message,
     create_agent_with_session
 )
+from ..services.agent_crud_service import get_agent_by_uuid
 from ..utils.prompt import ClientMessage
 from ..utils.stream import patch_response_with_headers, stream_strands_agent
 
@@ -23,6 +24,7 @@ router = APIRouter()
 
 class AgentRequest(BaseModel):
     id: str
+    agent_id: str
     message: Optional[ClientMessage] = None
     messages: Optional[List[ClientMessage]] = None
     trigger: Optional[str] = None
@@ -48,8 +50,14 @@ async def chat_with_agent(
     else:
         messages = request.messages or []
 
+    # Get agent_id from request and verify it exists
+    agent_id = request.agent_id
+    agent = get_agent_by_uuid(UUID(agent_id))
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
     # Get or create conversation (session from ContextVar)
-    conversation = get_or_create_conversation(conversation_id, user.uuid)
+    conversation = get_or_create_conversation(conversation_id, user.uuid, UUID(agent_id))
 
     # Save user message (session from ContextVar)
     if messages and messages[-1].role == "user":

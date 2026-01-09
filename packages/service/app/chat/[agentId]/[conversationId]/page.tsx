@@ -9,20 +9,23 @@ import { LoadingScreen } from '@/components/loading-screen';
 export default function Page() {
   const params = useParams();
   const t = useTranslations();
+  const [agentId, setAgentId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const id = params?.uuid as string;
-    if (id) {
-      setConversationId(id);
+    const agent = params?.agentId as string;
+    const conversation = params?.conversationId as string;
+    if (agent && conversation) {
+      setAgentId(agent);
+      setConversationId(conversation);
       setIsLoading(false);
     }
   }, [params]);
 
-  if (isLoading || !conversationId) {
+  if (isLoading || !agentId || !conversationId) {
     return <LoadingScreen message={t('common.loading')} />;
   }
 
-  return <ChatInterface conversationId={conversationId} />;
+  return <ChatInterface agentId={agentId} conversationId={conversationId} />;
 }

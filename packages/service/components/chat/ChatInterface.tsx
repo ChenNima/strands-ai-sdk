@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useChat, type UIMessage } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { useRouter } from 'next/navigation';
@@ -32,9 +32,12 @@ import { FileUploadButton } from './FileUploadButton';
 import { FileAttachments } from './FileList';
 import { useConversations } from './hooks/useConversations';
 import { useFileUpload } from './hooks/useFileUpload';
+import { api } from '@/lib/api-client';
 import type { ToolUIPart } from 'ai';
 
 export interface ChatInterfaceProps {
+  /** The unique identifier for the agent */
+  agentId: string;
   /** The unique identifier for the current conversation */
   conversationId: string;
 }
@@ -44,21 +47,37 @@ export interface ChatInterfaceProps {
  *
  * @example
  * ```tsx
- * <ChatInterface conversationId="uuid-123" />
+ * <ChatInterface agentId="agent-uuid" conversationId="uuid-123" />
  * ```
  */
-export function ChatInterface({ conversationId }: ChatInterfaceProps) {
+export function ChatInterface({ agentId, conversationId }: ChatInterfaceProps) {
   const router = useRouter();
   const t = useTranslations();
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
+  const [agentName, setAgentName] = useState<string | null>(null);
   const { getAccessToken } = useAuth();
 
-  // Conversations hook
+  // Conversations hook - filter by agentId
   const {
     conversations,
     isLoading: isLoadingConversations,
     deleteConversation,
-  } = useConversations();
+  } = useConversations({ agentId });
+
+  // Fetch agent info
+  useEffect(() => {
+    const fetchAgent = async () => {
+      try {
+        const agent = await api.getAgent(agentId);
+        setAgentName(agent.name);
+      } catch (error) {
+        console.error('Failed to fetch agent:', error);
+      }
+    };
+    if (agentId) {
+      fetchAgent();
+    }
+  }, [agentId]);
 
   // File upload hook
   const {
@@ -95,6 +114,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           body: {
             message: lastMessage,
             id,
+            agent_id: agentId,
             file_ids: fileIds.length > 0 ? fileIds : undefined,
           },
         };
@@ -145,16 +165,20 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   }, [conversationId, setMessages, getAccessToken]);
 
   // Handlers
+  const handleBackToAgents = useCallback(() => {
+    router.push('/chat');
+  }, [router]);
+
   const handleNewChat = useCallback(() => {
     const newId = crypto.randomUUID();
-    router.push(`/chat/${newId}`);
-  }, [router]);
+    router.push(`/chat/${agentId}/${newId}`);
+  }, [router, agentId]);
 
   const handleSelectConversation = useCallback(
     (uuid: string) => {
-      router.push(`/chat/${uuid}`);
+      router.push(`/chat/${agentId}/${uuid}`);
     },
-    [router]
+    [router, agentId]
   );
 
   const handleSubmit = useCallback(
@@ -263,17 +287,21 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       conversations,
       currentConversationId: conversationId,
       isLoading: isLoadingConversations,
+      agentName: agentName || undefined,
       onNewChat: handleNewChat,
       onSelectConversation: handleSelectConversation,
       onDeleteConversation: handleDeleteClick,
+      onBackToAgents: handleBackToAgents,
     }),
     [
       conversations,
       conversationId,
       isLoadingConversations,
+      agentName,
       handleNewChat,
       handleSelectConversation,
       handleDeleteClick,
+      handleBackToAgents,
     ]
   );
 
